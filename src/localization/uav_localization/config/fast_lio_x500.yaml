@@ -11,36 +11,46 @@
 # base_link-frame offset). If the mount in that world file changes, update
 # both this file and real_localization.launch.xml's static transform
 # together.
+#
+# Wrapped under /**: ros__parameters: — this is passed to fastlio_mapping
+# via --params-file (see real_localization.launch.xml's <include> of
+# fast_lio's own mapping.launch.py), and rclcpp's arg parser requires that
+# exact structure for any file passed that way; a flat file (FAST-LIO2's
+# own upstream convention when loaded via a raw YAML::LoadFile() call
+# instead) fails to parse with "Cannot have a value before ros__parameters".
+# The /**: wildcard applies to whatever node name the launch file uses,
+# rather than hardcoding one.
+/**:
+  ros__parameters:
+    common:
+      lid_topic: "/lidar/points"
+      imu_topic: "/imu/data"
+      time_sync_en: false            # set true if LiDAR/IMU hardware timestamps aren't already synced
 
-common:
-  lid_topic: "/lidar/points"
-  imu_topic: "/imu/data"
-  time_sync_en: false            # set true if LiDAR/IMU hardware timestamps aren't already synced
+    preprocess:
+      lidar_type: 2                  # 2 = generic velodyne-style PointCloud2; change if using a Livox sensor
+      scan_line: 32
+      timestamp_unit: 2              # 2 = nanoseconds; must match the simulated/real sensor driver
+      blind: 0.5                     # meters, minimum range to reject (rotor/frame self-returns)
 
-preprocess:
-  lidar_type: 2                  # 2 = generic velodyne-style PointCloud2; change if using a Livox sensor
-  scan_line: 32
-  timestamp_unit: 2              # 2 = nanoseconds; must match the simulated/real sensor driver
-  blind: 0.5                     # meters, minimum range to reject (rotor/frame self-returns)
+    mapping:
+      acc_cov: 0.1
+      gyr_cov: 0.1
+      b_acc_cov: 0.0001
+      b_gyr_cov: 0.0001
+      fov_degree: 180.0
+      det_range: 100.0
+      extrinsic_est_en: false
+      extrinsic_T: [0.05, 0.0, 0.10]  # lidar_link origin in imu_link frame, meters — from model.sdf
+      extrinsic_R: [1.0, 0.0, 0.0,    # identity — lidar_link carries no rotation relative to imu_link
+                    0.0, 1.0, 0.0,
+                    0.0, 0.0, 1.0]
 
-mapping:
-  acc_cov: 0.1
-  gyr_cov: 0.1
-  b_acc_cov: 0.0001
-  b_gyr_cov: 0.0001
-  fov_degree: 180.0
-  det_range: 100.0
-  extrinsic_est_en: false
-  extrinsic_T: [0.05, 0.0, 0.10]  # lidar_link origin in imu_link frame, meters — from model.sdf
-  extrinsic_R: [1.0, 0.0, 0.0,    # identity — lidar_link carries no rotation relative to imu_link
-                0.0, 1.0, 0.0,
-                0.0, 0.0, 1.0]
+    publish:
+      path_en: false
+      scan_publish_en: true
+      dense_publish_en: false
+      scan_bodyframe_pub_en: false
 
-publish:
-  path_en: false
-  scan_publish_en: true
-  dense_publish_en: false
-  scan_bodyframe_pub_en: false
-
-pcd_save:
-  pcd_save_en: false
+    pcd_save:
+      pcd_save_en: false
