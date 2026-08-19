@@ -2,6 +2,12 @@
 over ROS 2 topics to verify producer/consumer compatibility, per
 docs/TESTING.md. Requires the workspace to be built and sourced so
 `ros2 run <pkg> <exe>` resolves. Run with: `pytest tests/contract -v`
+
+Tests share fixed topic names (`/safety/vehicle_command`, etc.), so a
+message published by one test's node right before it's torn down can still
+be delivered after the next test's subscriber comes up. Every test below
+drains and discards whatever arrives during a settle window, then clears
+its collectors, before it starts asserting on freshly observed messages.
 """
 import subprocess
 import time
@@ -18,6 +24,8 @@ from uav_interfaces.msg import (
 
 SENSOR_QOS = QoSProfile(
     reliability=ReliabilityPolicy.BEST_EFFORT, history=HistoryPolicy.KEEP_LAST, depth=5)
+
+SETTLE_SECONDS = 1.5
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -43,6 +51,18 @@ class RunningNode:
             self.proc.kill()
 
 
+def settle_and_clear(nodes, *collectors, seconds=SETTLE_SECONDS):
+    """Spin for `seconds` to let discovery/queued messages flush, then
+    discard anything collected so far — the real test window starts clean.
+    """
+    end = time.monotonic() + seconds
+    while time.monotonic() < end:
+        for n in nodes:
+            rclpy.spin_once(n, timeout_sec=0.05)
+    for c in collectors:
+        c.clear()
+
+
 def spin_for(nodes, seconds):
     end = time.monotonic() + seconds
     while time.monotonic() < end:
@@ -57,7 +77,7 @@ def test_safety_rejects_stale_or_invalid_and_holds():
     watcher.create_subscription(
         VehicleCommand, '/safety/vehicle_command', lambda m: cmd_msgs.append(m), SENSOR_QOS)
 
-    time.sleep(1.0)  # let the process come up
+    settle_and_clear([watcher], cmd_msgs)
     spin_for([watcher], 1.0)
 
     safety.stop()
@@ -77,6 +97,8 @@ def test_safety_forwards_valid_command_when_inputs_healthy():
     driver.create_subscription(
         VehicleCommand, '/safety/vehicle_command', lambda m: cmd_msgs.append(m), SENSOR_QOS)
 
+    settle_and_clear([driver], cmd_msgs)
+
     loc = LocalizationState()
     loc.header.frame_id = 'map'
     loc.localization_ok = True
@@ -87,7 +109,6 @@ def test_safety_forwards_valid_command_when_inputs_healthy():
     traj.points = [pt]
     traj.valid = True
 
-    time.sleep(1.0)
     end = time.monotonic() + 2.0
     while time.monotonic() < end:
         loc_pub.publish(loc)
@@ -112,10 +133,11 @@ def test_vehicle_rejects_invalid_commands():
     driver.create_subscription(
         UInt32, '/vehicle/accepted_count', lambda m: accepted.append(m.data), SENSOR_QOS)
 
+    settle_and_clear([driver], rejected, accepted)
+
     invalid = VehicleCommand()
     invalid.valid = False
 
-    time.sleep(1.0)
     end = time.monotonic() + 2.0
     while time.monotonic() < end:
         cmd_pub.publish(invalid)
