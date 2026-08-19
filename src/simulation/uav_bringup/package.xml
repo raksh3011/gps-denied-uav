@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>uav_bringup</name>
+  <version>0.1.0</version>
+  <description>System-level launch/configuration (Person 4 owns). Brings up the full mocked pipeline: Mission -> Global Planner -> Localization -> World Model -> Local Planner -> Safety -> PX4 Interface.</description>
+  <maintainer email="team@example.com">Person 4</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>uav_localization</exec_depend>
+  <exec_depend>uav_world_model</exec_depend>
+  <exec_depend>uav_planning</exec_depend>
+  <exec_depend>uav_mission</exec_depend>
+  <exec_depend>uav_safety</exec_depend>
+  <exec_depend>uav_vehicle</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

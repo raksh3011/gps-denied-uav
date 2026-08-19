@@ -1,0 +1,14 @@
+# Pinned versions for reproducible dev environment
+# All four developers must match these exactly.
+
+UBUNTU_VERSION=24.04
+ROS_DISTRO=jazzy
+GAZEBO_VERSION=harmonic          # ships with ROS 2 Jazzy (gz-harmonic)
+PX4_FIRMWARE_TAG=v1.15.0
+CMAKE_MIN_VERSION=3.22
+GCC_MIN_VERSION=13
+PYTHON_MIN_VERSION=3.12
+EIGEN_VERSION=3.4                # via libeigen3-dev (apt)
+PCL_VERSION=1.14                 # via libpcl-dev (apt)
+COLCON=latest-apt
+WSL_KERNEL_MIN=5.15
