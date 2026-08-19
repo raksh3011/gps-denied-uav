@@ -1,14 +1,17 @@
 <!--
   Sensor payload for the simulated UAV: a 3D LiDAR + IMU, fixed-jointed to
-  base_link. This is NOT a standalone Gazebo model — PX4's own `x500` model
-  only exists as a locally-downloaded, dynamically-assembled file
-  (~/.simulation-gazebo/models/x500/model.sdf), and PX4's SITL launch
+  base_link. This is NOT a standalone Gazebo model — PX4's SITL launch
   plumbing (Ninja targets, airframe auto-detection via PX4_SIM_MODEL) is
-  hardcoded to that exact model name with no supported way we found to
-  register a second name alongside it — see docs/LOCALIZATION.md for the
+  hardcoded to a fixed set of model names with no supported way we found to
+  register a second one alongside them — see docs/LOCALIZATION.md for the
   full story. So instead of shipping a separate x500_lidar model, this
-  fragment gets injected directly into the downloaded x500 model.sdf by
-  setup/install_sim_sensors.sh, right before its closing </model> tag.
+  fragment gets injected by setup/install_sim_sensors.sh into
+  ~/.simulation-gazebo/models/x500_base/model.sdf, right before its closing
+  </model> tag. Target is x500_base, not x500: PX4 spawns "x500" as a
+  dynamically-assembled in-memory model built from x500_base, and never
+  reads x500/model.sdf off disk at spawn time — patching that file (our
+  first attempt) silently did nothing. x500_base IS read from disk on every
+  spawn, so patching it actually propagates through.
 
   This is the source of truth for the sensor mount offsets. If it changes,
   update these together:

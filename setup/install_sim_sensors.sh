@@ -1,14 +1,22 @@
 #!/usr/bin/env bash
-# Patches the locally-downloaded PX4 `x500` Gazebo model with our LiDAR +
-# IMU sensor payload (simulation/models/x500_lidar/sensors.sdf.xml).
+# Patches the locally-downloaded PX4 `x500_base` Gazebo model with our
+# LiDAR + IMU sensor payload (simulation/models/x500_lidar/sensors.sdf.xml).
 #
-# WHY patch the stock model instead of shipping our own "x500_lidar" model:
-# PX4's SITL launch plumbing (Ninja `gz_<model>` targets, PX4_SIM_MODEL
-# airframe auto-detection) is hardcoded to a fixed, small set of known model
-# names — we spent a long debugging session confirming there's no supported
-# way to add a new model name without either finding an undocumented Ninja
-# target-generation mechanism or force-writing a persisted PX4 parameter.
-# Patching the existing `x500` model directly sidesteps all of that: every
+# WHY x500_base, not x500: PX4 spawns the vehicle as "x500", but that model
+# is assembled dynamically in memory at spawn time (confirmed from Gazebo's
+# own warnings referencing it as `<data-string>`, not a file path) — built
+# from x500_base plus PX4's own plugin/motor config. Patching x500/model.sdf
+# on disk does nothing; it's not what's actually read at spawn time.
+# x500_base IS read from disk on every spawn (confirmed via a real file path
+# in its own warnings), so patching it is what actually propagates through.
+#
+# WHY patch the stock model at all instead of shipping our own "x500_lidar"
+# model: PX4's SITL launch plumbing (Ninja `gz_<model>` targets,
+# PX4_SIM_MODEL airframe auto-detection) is hardcoded to a fixed, small set
+# of known model names — we spent a long debugging session confirming
+# there's no supported way to add a new model name without either finding
+# an undocumented Ninja target-generation mechanism or force-writing a
+# persisted PX4 parameter. Patching x500_base sidesteps all of that: every
 # standard PX4 command (`make px4_sitl gz_x500`) just works unchanged.
 # See docs/LOCALIZATION.md for the full story.
 #
@@ -18,8 +26,8 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SNIPPET="$REPO_ROOT/simulation/models/x500_lidar/sensors.sdf.xml"
-MODEL_SDF="$HOME/.simulation-gazebo/models/x500/model.sdf"
-BACKUP="$HOME/.simulation-gazebo/models/x500/model.sdf.orig"
+MODEL_SDF="$HOME/.simulation-gazebo/models/x500_base/model.sdf"
+BACKUP="$HOME/.simulation-gazebo/models/x500_base/model.sdf.orig"
 
 if [ ! -f "$MODEL_SDF" ]; then
   echo "ERROR: $MODEL_SDF not found." >&2

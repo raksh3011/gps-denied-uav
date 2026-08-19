@@ -25,7 +25,11 @@ The original plan was a distinct Gazebo model (`x500_lidar`) alongside PX4's sto
 - `SYS_AUTOSTART` (the airframe selector) is a **persisted parameter**, not re-derived from the environment on every boot — it only auto-detects once, then a stale `parameters.bson` silently keeps reusing the old value regardless of what you change afterward.
 - Adding a genuinely new model name would mean registering a new numbered airframe file (PX4 reserves `22000`–`22999` for exactly this) and then finding — which we never located — wherever `gz_<model>` Ninja targets actually get generated from that list, or force-writing `SYS_AUTOSTART` as a persisted parameter to bypass name-based detection entirely.
 
-Rather than keep digging into PX4-internal plumbing indefinitely, we sidestepped it: `setup/install_sim_sensors.sh` patches our LiDAR + IMU sensors **directly into the locally-downloaded stock `x500` model**, so every standard PX4 command (`make px4_sitl gz_x500`, no overrides) just works, unmodified. The tradeoff: on a machine that's run this script, `x500` locally always means "the sensor-equipped variant." If you ever need the plain stock vehicle back, restore from the script's own backup (see the script for the path) or re-download via `simulation-gazebo --overwrite`.
+Rather than keep digging into PX4-internal plumbing indefinitely, we sidestepped it: `setup/install_sim_sensors.sh` patches our LiDAR + IMU sensors **directly into the locally-downloaded `x500_base` model**, so every standard PX4 command (`make px4_sitl gz_x500`, no overrides) just works, unmodified.
+
+Patch target is `x500_base`, not `x500` — this took a second wrong guess to find. PX4 spawns the vehicle as "x500", but that model is assembled dynamically in memory at spawn time (confirmed via Gazebo's own SDF-parsing warnings, which reference `x500` as `<data-string>` rather than a real file path — i.e. nothing ever reads `x500/model.sdf` off disk at spawn time, so patching it silently does nothing). `x500_base` **is** read from disk on every spawn (its own warnings show a real file path), and `x500` is assembled from it, so patching `x500_base` actually propagates into what gets spawned.
+
+The tradeoff: on a machine that's run this script, `x500` locally always means "the sensor-equipped variant." If you ever need the plain stock vehicle back, restore from the script's own backup (see the script for the path) or re-download via `simulation-gazebo --overwrite`.
 
 The sensor definitions themselves still live at `simulation/models/x500_lidar/sensors.sdf.xml` in this repo — that's the source of truth (in version control, reviewable in PRs); the script just injects it into a file that lives outside the repo, under `~/.simulation-gazebo/`, per machine.
 
@@ -137,7 +141,7 @@ Work through these in order — each one isolates a different layer, so if somet
    gz topic -l | grep -E 'lidar|imu'
    gz topic -e -t /world/default/model/x500_0/link/imu_link/sensor/imu/imu
    ```
-   If these don't list/echo, `setup/install_sim_sensors.sh` either wasn't run or the patched model wasn't picked up — check `grep -c 'gps-denied-uav sensors' ~/.simulation-gazebo/models/x500/model.sdf` (expect `2`).
+   If these don't list/echo, `setup/install_sim_sensors.sh` either wasn't run or the patched model wasn't picked up — check `grep -c 'gps-denied-uav sensors' ~/.simulation-gazebo/models/x500_base/model.sdf` (expect `2`).
 3. **The ROS 2 bridge is relaying it**, with `sensors_bridge.launch.xml` running:
    ```bash
    ros2 topic hz /lidar/points     # expect ~10 Hz, matching sensors.sdf.xml's lidar update_rate
