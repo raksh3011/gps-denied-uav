@@ -1,3 +1,17 @@
+// Copyright 2026 UAV Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // MockMission: publishes a fixed, latched Mission on startup and logs
 // PlannerStatus, so the rest of the pipeline can be exercised without a
 // real mission file loader or operator input UI.
@@ -17,7 +31,8 @@ using uav_interfaces::msg::PlannerStatus;
 class MockMission : public rclcpp::Node
 {
 public:
-  MockMission() : Node("mock_mission")
+  MockMission()
+  : Node("mock_mission")
   {
     rclcpp::QoS mission_qos(rclcpp::KeepLast(1));
     mission_qos.reliable().transient_local();

@@ -1,3 +1,17 @@
+// Copyright 2026 UAV Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // MockVehicle: consumes VehicleCommand from Safety and logs what would be
 // sent to PX4. Rejects any command where `valid == false`. This proves the
 // Safety -> PX4 Interface contract before the real uXRCE-DDS bridge and
@@ -18,7 +32,8 @@ using std_msgs::msg::UInt32;
 class MockVehicle : public rclcpp::Node
 {
 public:
-  MockVehicle() : Node("mock_vehicle")
+  MockVehicle()
+  : Node("mock_vehicle")
   {
     rclcpp::QoS qos(rclcpp::KeepLast(5));
     qos.best_effort();

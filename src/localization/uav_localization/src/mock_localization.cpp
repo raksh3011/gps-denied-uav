@@ -1,3 +1,17 @@
+// Copyright 2026 UAV Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // MockLocalization: publishes a plausible LocalizationState at a fixed rate
 // so downstream modules (World Model, Planning, Safety) can be developed and
 // tested without a real LiDAR-Inertial Odometry pipeline.
@@ -14,7 +28,8 @@ using uav_interfaces::msg::LocalizationState;
 class MockLocalization : public rclcpp::Node
 {
 public:
-  MockLocalization() : Node("mock_localization"), t0_(this->now())
+  MockLocalization()
+  : Node("mock_localization"), t0_(this->now())
   {
     rclcpp::QoS qos(rclcpp::KeepLast(5));
     qos.best_effort();
