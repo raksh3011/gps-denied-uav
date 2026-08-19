@@ -5,12 +5,18 @@
   still mocked — this is the "swap one module for real, keep the rest
   mocked" workflow described in docs/DEVELOPMENT.md.
 
-  Prerequisites this launch file does NOT start for you:
-    1. Gazebo + PX4 SITL running with PX4_GZ_MODEL=x500_lidar
-       (simulation/models/x500_lidar/).
-    2. simulation/launch/sensors_bridge.launch.xml running, to bridge the
+  Prerequisites this launch file does NOT start for you (see
+  docs/LOCALIZATION.md for the full, confirmed-working sequence):
+    1. setup/install_sim_sensors.sh run once, patching our lidar_link/
+       imu_link sensors into the locally-downloaded stock x500 model.
+    2. Gazebo running standalone (python3 Tools/simulation/gz/simulation-gazebo
+       in its own terminal), THEN PX4 SITL with PX4_GZ_STANDALONE=1
+       (`PX4_GZ_STANDALONE=1 make px4_sitl gz_x500`) in a second terminal —
+       both steps required, in that order, or PX4 loses the race against
+       Gazebo's own startup time under WSL2.
+    3. simulation/launch/sensors_bridge.launch.xml running, to bridge the
        simulated sensors into /lidar/points and /imu/data.
-    3. The vendored FAST-LIO2 backend built (uav_localization.repos).
+    4. The vendored FAST-LIO2 backend built (uav_localization.repos).
 -->
 <launch>
   <include file="$(find-pkg-share uav_localization)/launch/real_localization.launch.xml" />

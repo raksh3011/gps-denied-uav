@@ -12,9 +12,16 @@
   written in, so it doesn't pull Python into anything we own.)
 
   Static transforms for lidar_link/imu_link -> base_link below must match
-  simulation/models/x500_lidar/model.sdf and
+  simulation/models/x500_lidar/sensors.sdf.xml (the sensor fragment patched
+  into the stock x500 model by setup/install_sim_sensors.sh — see
+  docs/LOCALIZATION.md) and
   uav_localization/config/fast_lio_x500.yaml's extrinsic_T/extrinsic_R —
   see the comment in that yaml file if the sensor mount ever changes.
+
+  Requires Gazebo + PX4 SITL already running via the two-step sequence in
+  docs/LOCALIZATION.md (Gazebo first via simulation-gazebo, then PX4 with
+  PX4_GZ_STANDALONE=1) — a plain `make px4_sitl gz_x500` alone loses the
+  race against Gazebo's own startup time under WSL2.
 -->
 <launch>
   <node pkg="tf2_ros" exec="static_transform_publisher" name="lidar_link_tf" output="screen"

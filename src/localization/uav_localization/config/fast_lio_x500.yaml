@@ -6,10 +6,11 @@
 # THIS IS A STARTING POINT, NOT A TUNED CONFIG (acc_cov/gyr_cov/etc. are
 # FAST-LIO2 defaults, not measured for our simulated IMU). extrinsic_T/
 # extrinsic_R below ARE real, though: they're read directly off
-# simulation/models/x500_lidar/model.sdf's lidar_link pose relative to
+# simulation/models/x500_lidar/sensors.sdf.xml's lidar_link pose relative to
 # base_link (imu_link sits at base_link's own origin, so IMU-frame offset =
-# base_link-frame offset). If the mount in model.sdf changes, update both
-# this file and real_localization.launch.xml's static transform together.
+# base_link-frame offset). If the mount in sensors.sdf.xml changes, update
+# both this file and real_localization.launch.xml's static transform
+# together.
 
 common:
   lid_topic: "/lidar/points"

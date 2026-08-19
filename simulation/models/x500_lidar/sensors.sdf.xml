@@ -1,0 +1,94 @@
+<!--
+  Sensor payload for the simulated UAV: a 3D LiDAR + IMU, fixed-jointed to
+  base_link. This is NOT a standalone Gazebo model — PX4's own `x500` model
+  only exists as a locally-downloaded, dynamically-assembled file
+  (~/.simulation-gazebo/models/x500/model.sdf), and PX4's SITL launch
+  plumbing (Ninja targets, airframe auto-detection via PX4_SIM_MODEL) is
+  hardcoded to that exact model name with no supported way we found to
+  register a second name alongside it — see docs/LOCALIZATION.md for the
+  full story. So instead of shipping a separate x500_lidar model, this
+  fragment gets injected directly into the downloaded x500 model.sdf by
+  setup/install_sim_sensors.sh, right before its closing </model> tag.
+
+  This is the source of truth for the sensor mount offsets. If it changes,
+  update these together:
+    - src/localization/uav_localization/config/fast_lio_x500.yaml
+      (extrinsic_T / extrinsic_R)
+    - src/localization/uav_localization/launch/real_localization.launch.xml
+      (static_transform_publisher args)
+    - src/localization/uav_localization/config/ros_gz_bridge_lidar_imu.yaml
+      (gz_topic_name entity paths)
+-->
+<!-- BEGIN gps-denied-uav sensors -->
+<link name="lidar_link">
+  <pose relative_to="base_link">0.05 0 0.10 0 0 0</pose>
+  <inertial>
+    <mass>0.05</mass>
+    <inertia>
+      <ixx>0.00002</ixx><iyy>0.00002</iyy><izz>0.00002</izz>
+      <ixy>0</ixy><ixz>0</ixz><iyz>0</iyz>
+    </inertia>
+  </inertial>
+  <visual name="lidar_visual">
+    <geometry><cylinder><radius>0.03</radius><length>0.04</length></cylinder></geometry>
+    <material>
+      <ambient>0.1 0.1 0.1 1</ambient>
+      <diffuse>0.1 0.1 0.1 1</diffuse>
+    </material>
+  </visual>
+  <sensor name="lidar" type="gpu_lidar">
+    <pose>0 0 0 0 0 0</pose>
+    <topic>/world/default/model/x500_0/link/lidar_link/sensor/lidar/scan/points</topic>
+    <update_rate>10</update_rate>
+    <lidar>
+      <scan>
+        <horizontal>
+          <samples>1024</samples>
+          <resolution>1</resolution>
+          <min_angle>-3.14159265</min_angle>
+          <max_angle>3.14159265</max_angle>
+        </horizontal>
+        <vertical>
+          <samples>32</samples>
+          <resolution>1</resolution>
+          <min_angle>-0.4363323</min_angle>
+          <max_angle>0.2617994</max_angle>
+        </vertical>
+      </scan>
+      <range>
+        <min>0.3</min>
+        <max>100.0</max>
+        <resolution>0.01</resolution>
+      </range>
+    </lidar>
+    <always_on>true</always_on>
+    <visualize>false</visualize>
+  </sensor>
+</link>
+
+<joint name="lidar_joint" type="fixed">
+  <parent>base_link</parent>
+  <child>lidar_link</child>
+</joint>
+
+<link name="imu_link">
+  <pose relative_to="base_link">0 0 0 0 0 0</pose>
+  <inertial>
+    <mass>0.001</mass>
+    <inertia>
+      <ixx>1e-7</ixx><iyy>1e-7</iyy><izz>1e-7</izz>
+      <ixy>0</ixy><ixz>0</ixz><iyz>0</iyz>
+    </inertia>
+  </inertial>
+  <sensor name="imu" type="imu">
+    <topic>/world/default/model/x500_0/link/imu_link/sensor/imu/imu</topic>
+    <update_rate>200</update_rate>
+    <always_on>true</always_on>
+  </sensor>
+</link>
+
+<joint name="imu_joint" type="fixed">
+  <parent>base_link</parent>
+  <child>imu_link</child>
+</joint>
+<!-- END gps-denied-uav sensors -->

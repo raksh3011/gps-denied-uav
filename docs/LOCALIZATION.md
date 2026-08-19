@@ -4,26 +4,30 @@ Owner: Person 1. This documents the real Localization implementation, layered on
 
 ## Status
 
-**Whole toolchain builds clean (2026-08-19, raksh's WSL2 machine):** `uav_localization`, `fast_lio`, and its vendored `livox_ros_driver2` dependency all build via `colcon build`, following the exact sequence documented at the top of `uav_localization.repos`. That sequence took four rounds of real, confirmed fixes to get right (submodule init, a manifest rename, a native SDK build, and using `livox_ros_driver2`'s own two-phase build script) — worth reading if anything about this regresses. Everything past this point (Gazebo model load onward) is still unverified.
+**Confirmed working end-to-end on real hardware (2026-08-19, raksh's WSL2 machine), through PX4 SITL reaching a flyable `pxh>` prompt with our sensors attached.** Everything in [Build and run](#build-and-run) below is the exact sequence that got there — every step in it was a real failure encountered and fixed, not a guess. What's still open:
 
-- `lio_state_bridge` (C++, builds and lints clean) — the adapter node, described below.
-- `simulation/models/x500_lidar/` — a real Gazebo model: PX4's stock `x500` plus a `gpu_lidar` on `lidar_link` and an `imu` sensor on `imu_link`, both fixed-jointed to `base_link`. This is the source of truth for the sensor mount, not a placeholder.
-- `real_localization.launch.xml`, `fast_lio_x500.yaml`, static TF publishers for `lidar_link`/`imu_link` — extrinsics (`extrinsic_T`/`extrinsic_R` in the yaml, the TF publisher `args` in the launch file) are read directly off `model.sdf`, not guessed. If the mount ever moves, update all three together — that's now the single place drift between "what the sim actually has" and "what FAST-LIO2 is told" can creep in.
-- `uav_localization.repos` — vendoring pointer for the LIO backend, with the full confirmed build sequence in its header comment.
-- `ros_gz_bridge_lidar_imu.yaml` + `simulation/launch/sensors_bridge.launch.xml`, topic names matching `model.sdf`'s sensor `<topic>` tags.
-
-What's **not** done, and blocks actually running this:
-
-- `x500_lidar/model.sdf` has never been loaded into Gazebo — it's written to the SDF 1.9 spec and to the same pattern PX4's own sensor-variant models (e.g. `x500_depth`) use, but a syntax slip is possible. First thing to check if Gazebo rejects it.
-- `PX4_GZ_MODEL=x500_lidar` requires the model to be discoverable — either copy `simulation/models/x500_lidar/` into `PX4-Autopilot/Tools/simulation/gz/models/`, or add this repo's `simulation/models` to `GZ_SIM_RESOURCE_PATH`. Not automated yet; a `setup/` script for this is a reasonable next addition.
+- The vendored FAST-LIO2 backend (`fast_lio` + `livox_ros_driver2`) builds clean, but hasn't yet been run against the live `/lidar/points`/`/imu/data` topics to confirm it actually produces `/Odometry`. That's the next real milestone — see [Next tasks](#next-tasks-roughly-in-order).
 - `acc_cov`/`gyr_cov`/etc. in `fast_lio_x500.yaml` are FAST-LIO2's stock defaults, not tuned against the simulated IMU's actual noise characteristics.
-- `lio_state_bridge`'s confidence/status heuristic (see below) is a stand-in. It's timestamp-staleness-only — it doesn't look at anything FAST-LIO2 exposes about registration quality/degeneracy. Real localization-health work is improving this, not just wiring topics.
+- `lio_state_bridge`'s confidence/status heuristic (see below) is a stand-in — timestamp-staleness-only, doesn't look at anything FAST-LIO2 exposes about registration quality/degeneracy.
 
 ## Why this design
 
 Every other module (World Model, Planning, Safety) was built and tested against `MockLocalization` publishing on `/localization/state`. That contract doesn't change here — `lio_state_bridge` publishes the exact same `LocalizationState` message on the exact same topic. Swapping mock for real is a launch-file change (`mock_pipeline.launch.xml` -> `real_localization_pipeline.launch.xml`), not an interface change. See `docs/DEVELOPMENT.md` for the general "develop against mocks, swap in real later" workflow this is an instance of.
 
 The actual state estimation is FAST-LIO2, not code we wrote. `lio_state_bridge` is deliberately thin: it does not do sensor fusion, it converts FAST-LIO2's `nav_msgs/Odometry` output into our contract and turns silence into an honest `localization_ok=false` instead of letting stale data look live. Keeping the adapter thin means swapping the backend later (a different LIO algorithm, or real hardware with a different driver) only touches this one file plus the launch file — not any downstream module.
+
+## Why there's no separate "x500_lidar" model
+
+The original plan was a distinct Gazebo model (`x500_lidar`) alongside PX4's stock `x500`. That turned out to not be practical: PX4's SITL launch plumbing — the `make px4_sitl gz_x500` Ninja target, and `PX4_SIM_MODEL`-based airframe auto-detection — is hardcoded to a small, fixed set of known model names. We spent a long debugging session confirming:
+
+- `PX4_GZ_MODEL` (an env var we initially guessed at) isn't read anywhere in this PX4 version at all.
+- The real variable is `PX4_SIM_MODEL` (format `gz_<model>`), but the `gz_x500` Ninja target hardcodes `PX4_SIM_MODEL=gz_x500` as an inline command-line assignment, which always wins over anything exported in your own shell — there's no overriding it from outside.
+- `SYS_AUTOSTART` (the airframe selector) is a **persisted parameter**, not re-derived from the environment on every boot — it only auto-detects once, then a stale `parameters.bson` silently keeps reusing the old value regardless of what you change afterward.
+- Adding a genuinely new model name would mean registering a new numbered airframe file (PX4 reserves `22000`–`22999` for exactly this) and then finding — which we never located — wherever `gz_<model>` Ninja targets actually get generated from that list, or force-writing `SYS_AUTOSTART` as a persisted parameter to bypass name-based detection entirely.
+
+Rather than keep digging into PX4-internal plumbing indefinitely, we sidestepped it: `setup/install_sim_sensors.sh` patches our LiDAR + IMU sensors **directly into the locally-downloaded stock `x500` model**, so every standard PX4 command (`make px4_sitl gz_x500`, no overrides) just works, unmodified. The tradeoff: on a machine that's run this script, `x500` locally always means "the sensor-equipped variant." If you ever need the plain stock vehicle back, restore from the script's own backup (see the script for the path) or re-download via `simulation-gazebo --overwrite`.
+
+The sensor definitions themselves still live at `simulation/models/x500_lidar/sensors.sdf.xml` in this repo — that's the source of truth (in version control, reviewable in PRs); the script just injects it into a file that lives outside the repo, under `~/.simulation-gazebo/`, per machine.
 
 ## License boundary — read before touching this code
 
@@ -56,6 +60,26 @@ FAST-LIO2 is **GPLv2**. Everything else in this repo is Apache-2.0. That's fine 
 
 This is intentionally conservative: `localization_ok` only goes `true` when data is fresh, full stop. It says nothing about whether FAST-LIO2's estimate is actually *good* while it's fresh — that's the next real piece of work (see below).
 
+## WSL2 environment prerequisites (one-time, per machine)
+
+Two real WSL2/Gazebo issues surfaced getting this running — fix both before touching PX4:
+
+1. **Mirrored networking.** WSL2's default NAT networking breaks `gz-transport`'s peer discovery in some configurations. Add to `%USERPROFILE%\.wslconfig` on Windows (create it if it doesn't exist):
+   ```ini
+   [wsl2]
+   networkingMode=mirrored
+   ```
+   Then from PowerShell: `wsl --shutdown`, and reopen your WSL2 terminal. Requires Windows 11 with a reasonably recent WSL version (`wsl --version`).
+2. **Multicast route.** Even with mirrored networking, WSL2 doesn't always get a default multicast route, which `gz-transport` discovery also depends on:
+   ```bash
+   sudo ip route add 224.0.0.0/4 dev eth1   # adjust eth1 if your interface is named differently (`ip -4 addr`)
+   ```
+   This doesn't persist across reboots/WSL restarts — re-run it if Gazebo discovery ever mysteriously breaks again after a restart. (In our specific debugging session, the actual blocking bug turned out to be the startup race described below, not this — but this was a real, independently-confirmed gap worth fixing regardless.)
+
+## The real blocker: a PX4/Gazebo startup race, not networking
+
+In default (non-standalone) mode, PX4 spawns its own Gazebo process and then makes **one single** service call with a 1000ms timeout to spawn the vehicle — no retry. Under WSL2, Gazebo routinely takes longer than one second to finish initializing its services, so this one-shot call reliably times out (`Service call timed out. Check GZ_SIM_RESOURCE_PATH is set correctly.` — a misleading error message; the resource path is usually fine). The fix is `PX4_GZ_STANDALONE=1`, which switches PX4 to a retry-every-2-seconds loop instead — but that mode also means PX4 does **not** launch Gazebo itself; you launch it yourself first, in its own terminal, then point PX4 at it. See the exact sequence below.
+
 ## Build and run
 
 ```bash
@@ -81,16 +105,25 @@ source /opt/ros/jazzy/setup.bash
 colcon build --symlink-install --packages-select fast_lio   # in case the submodule fix above landed after build.sh's own pass
 source install/setup.bash
 
-# make the model discoverable (one-time; see Status above for alternatives)
-cp -r simulation/models/x500_lidar "$HOME/PX4-Autopilot/Tools/simulation/gz/models/"
+# one-time: download PX4's stock Gazebo models (Ctrl+C once the window opens —
+# we only need the download, not this particular launch)
+python3 ~/PX4-Autopilot/Tools/simulation/gz/simulation-gazebo
 
-# terminal 1: Gazebo + PX4 SITL with the sensor-equipped vehicle
-cd ~/PX4-Autopilot && PX4_GZ_MODEL=x500_lidar make px4_sitl gz_x500
+# one-time: patch our sensors into the downloaded x500 model
+./setup/install_sim_sensors.sh
 
-# terminal 2: bridge the simulated sensors into ROS 2
+# terminal 1: Gazebo, standalone — leave running
+cd ~/PX4-Autopilot
+python3 Tools/simulation/gz/simulation-gazebo
+
+# terminal 2: PX4 SITL, standalone mode (retries until it detects terminal 1's Gazebo)
+cd ~/PX4-Autopilot
+PX4_GZ_STANDALONE=1 make px4_sitl gz_x500
+
+# terminal 3: bridge the simulated sensors into ROS 2
 ros2 launch $(pwd)/simulation/launch/sensors_bridge.launch.xml
 
-# terminal 3: in place of mock_pipeline.launch.xml
+# terminal 4: in place of mock_pipeline.launch.xml
 ros2 launch uav_bringup real_localization_pipeline.launch.xml
 ```
 
@@ -98,16 +131,16 @@ ros2 launch uav_bringup real_localization_pipeline.launch.xml
 
 Work through these in order — each one isolates a different layer, so if something's wrong you'll know which piece before moving to the next:
 
-1. **The model loads.** After `make px4_sitl gz_x500` with `PX4_GZ_MODEL=x500_lidar`, Gazebo should show the quad with a small cylinder (the LiDAR) on top. If it silently falls back to the plain `x500`, the model wasn't found — check the copy step above, or `echo $GZ_SIM_RESOURCE_PATH`.
+1. **PX4 reaches a flyable prompt.** After the terminal 1 + terminal 2 sequence above, terminal 2 should reach `pxh>` with `Startup script returned successfully`, and the Gazebo window should show the quad (the LiDAR cylinder may not be visually obvious under WSL2's software rendering — that's a rendering quirk, not proof the sensor is missing; verify via topics in the next step instead). If terminal 2 instead loops `Service call timed out as Gazebo has not been detected`, terminal 1 either isn't running or hasn't finished starting yet — wait longer before starting terminal 2.
 2. **Sensors are actually publishing in Gazebo**, before touching ROS 2 at all:
    ```bash
    gz topic -l | grep -E 'lidar|imu'
-   gz topic -e -t /world/default/model/x500_lidar/link/imu_link/sensor/imu/imu
+   gz topic -e -t /world/default/model/x500_0/link/imu_link/sensor/imu/imu
    ```
-   If these don't list/echo, the SDF sensor tags are wrong — fix `model.sdf` before going further; the ROS bridge can't produce data Gazebo isn't producing.
+   If these don't list/echo, `setup/install_sim_sensors.sh` either wasn't run or the patched model wasn't picked up — check `grep -c 'gps-denied-uav sensors' ~/.simulation-gazebo/models/x500/model.sdf` (expect `2`).
 3. **The ROS 2 bridge is relaying it**, with `sensors_bridge.launch.xml` running:
    ```bash
-   ros2 topic hz /lidar/points     # expect ~10 Hz, matching model.sdf's lidar update_rate
+   ros2 topic hz /lidar/points     # expect ~10 Hz, matching sensors.sdf.xml's lidar update_rate
    ros2 topic hz /imu/data         # expect ~200 Hz
    ros2 topic echo /imu/data --once
    ```
@@ -116,19 +149,19 @@ Work through these in order — each one isolates a different layer, so if somet
    ros2 topic hz /Odometry
    ros2 topic echo /Odometry --once
    ```
-   If `/lidar/points` and `/imu/data` are both flowing but `/Odometry` never appears, the problem is inside the vendored FAST-LIO2 config — check its own log output first (`fast_lio_x500.yaml`'s topic names, `lidar_type`/`timestamp_unit` matching the simulated sensor).
+   If `/lidar/points` and `/imu/data` are both flowing but `/Odometry` never appears, the problem is inside the vendored FAST-LIO2 config — check its own log output first (`fast_lio_x500.yaml`'s topic names, `lidar_type`/`timestamp_unit` matching the simulated sensor). **This is the first unverified step** — everything before it is confirmed, this one hasn't been run yet.
 5. **`lio_state_bridge` is relaying it correctly** into our contract:
    ```bash
    ros2 topic echo /localization/state
    ```
-   Fly the vehicle a short distance (even a manual RC/QGroundControl takeoff) and confirm: `localization_ok: true`, `status: 0` (`STATUS_NOMINAL`), `pose.position` changing plausibly with movement, `header.frame_id: map`. Stop `/Odometry` (kill the FAST-LIO2 process) and confirm `/localization/state` transitions `NOMINAL -> DEGRADED -> LOST` over ~0.3s and ~1.5s respectively, matching the table below — that failure-path behavior matters as much as the happy path, since it's what Safety depends on.
+   Fly the vehicle a short distance (even a manual RC/QGroundControl takeoff) and confirm: `localization_ok: true`, `status: 0` (`STATUS_NOMINAL`), `pose.position` changing plausibly with movement, `header.frame_id: map`. Stop `/Odometry` (kill the FAST-LIO2 process) and confirm `/localization/state` transitions `NOMINAL -> DEGRADED -> LOST` over ~0.3s and ~1.5s respectively, matching the table above — that failure-path behavior matters as much as the happy path, since it's what Safety depends on.
 6. **The full pipeline still holds together.** With `real_localization_pipeline.launch.xml` running end-to-end, `ros2 topic echo /safety/vehicle_command` should behave exactly like it did with `MockLocalization` in the Milestone 1 verification — `valid: true` once localization is healthy, `MODE_HOLD`/`valid: false` if you kill localization. If Safety's behavior differs at all between mock and real Localization, that's a contract violation somewhere in this chain, not a Safety bug — `LocalizationState` is supposed to be indistinguishable to downstream consumers regardless of producer.
 
-Once (5) and (6) pass, this module has cleared the same bar `MockLocalization` already cleared — see [docs/TESTING.md](TESTING.md) for what "contract-tested" means and task 4 below for making that automatic rather than manual.
+Once (5) and (6) pass, this module has cleared the same bar `MockLocalization` already cleared — see [docs/TESTING.md](TESTING.md) for what "contract-tested" means and task 3 below for making that automatic rather than manual.
 
 ## Next tasks, roughly in order
 
-1. Confirm `x500_lidar/model.sdf` loads in Gazebo and its sensors publish (verification steps 1-2 above); fix any SDF syntax issues.
+1. Run verification steps 2-4 above — confirm FAST-LIO2 actually produces `/Odometry` from the real sensor topics. This is the first genuinely unverified step in the whole chain.
 2. Timestamp synchronization between the LiDAR and IMU sources (`docs/CONVENTIONS.md` calls this out as your responsibility) — confirm the sim sensors are already synced or add correction.
 3. Add contract tests for `lio_state_bridge` itself (currently only `MockLocalization`'s output is contract-tested) — same pattern as `tests/contract/test_node_contracts.py`, publishing synthetic `Odometry` and asserting the staleness/status table above, so verification step 5 above becomes a `pytest` assertion.
 4. Improve the confidence heuristic past "is it fresh" — look at what the vendored backend actually exposes about registration quality (e.g. FAST-LIO2's ESKF covariance) instead of a fixed 0.9/0.3/0.0.
