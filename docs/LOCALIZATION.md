@@ -12,9 +12,13 @@ Owner: Person 1. This documents the real Localization implementation, layered on
 
 One environment-level regression surfaced and was fixed along the way: **do not enable WSL2 mirrored networking for this project** — see [WSL2 environment prerequisites](#wsl2-environment-prerequisites-one-time-per-machine) below, it broke ROS 2 DDS discovery entirely.
 
+`fastlio_mapping` also crashed on launch until `fast_lio_x500.yaml` was fixed to use the ROS 2 params-file structure (`/**: ros__parameters:`) instead of FAST-LIO2's own flat upstream YAML convention — see the comment at the top of that file. **Confirmed fixed: it no longer crashes**, reaches `Node init finished.`, and correctly subscribes to `/lidar/points`/`/imu/data` (verified via `ros2 node info /laser_mapping`) with matching QoS on both ends.
+
+**Not yet confirmed: `fastlio_mapping` actually publishing `/Odometry`.** On the machine this was debugged on, running the full stack simultaneously — Gazebo (GUI + server), PX4, the ROS 2 bridge, `fastlio_mapping`, and `rviz2` — exceeded available resources (3.8GB RAM, load average >7, `/lidar/points` itself stalled since `gpu_lidar` needs active GPU rendering). Whether `fastlio_mapping` would actually produce odometry given uninterrupted sensor data is **still an open question**, not confirmed one way or the other. See [Running this on constrained hardware](#running-this-on-constrained-hardware) below before debugging further on a similarly limited machine.
+
 What's still open, in order:
 
-1. **Confirm FAST-LIO2 actually produces `/Odometry` from the real sensor topics.** This is the next thing to verify — everything upstream of it (sensors -> ROS 2 topics) is now confirmed working.
+1. **Confirm FAST-LIO2 actually produces `/Odometry`**, on a machine with enough headroom to keep all sensor topics flowing continuously (headless Gazebo, no RViz — see below). If it still doesn't, next things to check: the point cloud's actual field layout (`ros2 topic echo /lidar/points --no-arr`) against what FAST-LIO2's `lidar_type: 2` parser expects — a mismatch there is a common real-world FAST-LIO2 setup issue and hasn't been ruled out.
 2. `acc_cov`/`gyr_cov`/etc. in `fast_lio_x500.yaml` are FAST-LIO2's stock defaults, not tuned against the simulated IMU's actual noise characteristics.
 3. `lio_state_bridge`'s confidence/status heuristic (see below) is a stand-in — timestamp-staleness-only, doesn't look at anything FAST-LIO2 exposes about registration quality/degeneracy.
 
@@ -120,7 +124,8 @@ python3 ~/PX4-Autopilot/Tools/simulation/gz/simulation-gazebo
 
 # terminal 1: Gazebo, loading OUR world file directly (not simulation-gazebo's
 # own launcher — we don't want its dynamic x500 spawn, our vehicle is
-# already placed statically in this world file)
+# already placed statically in this world file). Add -s (headless, no GUI)
+# instead of just -r if you're on constrained hardware — see below.
 export GZ_SIM_RESOURCE_PATH=~/.simulation-gazebo/models
 cd ~/gps-denied-uav
 gz sim -r simulation/worlds/x500_lidar.sdf
@@ -136,6 +141,14 @@ ros2 launch $(pwd)/simulation/launch/sensors_bridge.launch.xml
 # terminal 4: in place of mock_pipeline.launch.xml
 ros2 launch uav_bringup real_localization_pipeline.launch.xml
 ```
+
+## Running this on constrained hardware
+
+The full stack — Gazebo (GUI + physics + rendering), PX4 SITL, the ROS 2 bridge, `fastlio_mapping`, and `rviz2` — is genuinely heavy. On a 3.8GB-RAM WSL2 VM this reliably overloaded (load average >7, `/lidar/points` stalled since `gpu_lidar` needs active GPU rendering to produce anything) once `fastlio_mapping` and `rviz2` joined the already-running Gazebo+PX4+bridge. If you hit the same thing:
+
+- **Run Gazebo headless**: `gz sim -s -r simulation/worlds/x500_lidar.sdf` (`-s` = server only, no 3D GUI window). Sensor topics publish identically either way — the GUI is purely visual and was the single heaviest process.
+- **Skip `rviz2`.** `real_localization.launch.xml` includes it via FAST-LIO2's own `mapping.launch.py` (not something we launch directly) purely for visualization; it isn't needed to verify `/Odometry` is being published. If it can't be disabled via a launch argument, just `pkill -9 -f rviz2` right after the launch starts — everything else keeps running.
+- Watch `free -h` and `top` between steps. If `/lidar/points`/`/imu/data` stop publishing partway through a session that worked a moment ago, that's this — not a config regression — check load before re-debugging config.
 
 ## Verifying this on your machine
 
@@ -171,7 +184,8 @@ Once (5) and (6) pass, this module has cleared the same bar `MockLocalization` a
 
 ## Next tasks, roughly in order
 
-1. Run verification steps 2-4 — confirm PX4 attaches via `PX4_GZ_MODEL_NAME`, the ROS 2 bridge relays the topics, and FAST-LIO2 produces `/Odometry`. (Step 1 — the world loading and publishing sensor topics with `gz sim` alone — is confirmed, see Status above.)
+1. **Confirm FAST-LIO2 produces `/Odometry`**, on hardware with enough headroom to keep `/lidar/points`/`/imu/data` flowing continuously (headless Gazebo + no `rviz2`, see [Running this on constrained hardware](#running-this-on-constrained-hardware)). Steps 1-3 (world loads standalone, PX4 attaches, ROS 2 bridge relays real data) are all confirmed — this is the only unverified link left in the sensor->odometry chain, and it's unverified because of resource limits on the machine it was attempted on, not because of a known bug.
+2. If `/Odometry` still doesn't appear on capable hardware: check the point cloud's actual field layout (`ros2 topic echo /lidar/points --no-arr`) against what FAST-LIO2's `lidar_type: 2` parser expects — a mismatch there is a common real-world FAST-LIO2 setup issue and hasn't been ruled out yet.
 3. Timestamp synchronization between the LiDAR and IMU sources (`docs/CONVENTIONS.md` calls this out as your responsibility) — confirm the sim sensors are already synced or add correction.
 4. Add contract tests for `lio_state_bridge` itself (currently only `MockLocalization`'s output is contract-tested) — same pattern as `tests/contract/test_node_contracts.py`, publishing synthetic `Odometry` and asserting the staleness/status table above, so verification step 5 above becomes a `pytest` assertion.
 5. Improve the confidence heuristic past "is it fresh" — look at what the vendored backend actually exposes about registration quality (e.g. FAST-LIO2's ESKF covariance) instead of a fixed 0.9/0.3/0.0.
