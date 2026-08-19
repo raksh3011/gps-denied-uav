@@ -23,6 +23,27 @@
 -->
 <sdf version="1.10">
   <world name="default">
+    <!-- Explicit system plugins. Without these, Gazebo only auto-loads a
+         bare default set (Physics + UserCommands + SceneBroadcaster) —
+         confirmed via -v 4 log output. When PX4 spawns a vehicle itself
+         (the create-service path, not used here) its gz_bridge module
+         additionally requests Sensors/Imu/AirPressure/Contact via the
+         /entity/system/add service as part of spawning; since we place
+         the vehicle statically and PX4 never spawns anything, nothing
+         else ever requests those, so they must be declared here or no
+         sensor (not even the stock ones) ever produces a topic. -->
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
+    <plugin filename="gz-sim-air-pressure-system" name="gz::sim::systems::AirPressure"/>
+    <plugin filename="gz-sim-navsat-system" name="gz::sim::systems::NavSat"/>
+    <plugin filename="gz-sim-contact-system" name="gz::sim::systems::Contact"/>
+    <plugin filename="gz-sim-apply-link-wrench-system" name="gz::sim::systems::ApplyLinkWrench"/>
+
     <physics type="ode">
       <max_step_size>0.004</max_step_size>
       <real_time_factor>1</real_time_factor>
