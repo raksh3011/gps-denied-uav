@@ -70,19 +70,14 @@ This is intentionally conservative: `localization_ok` only goes `true` when data
 
 ## WSL2 environment prerequisites (one-time, per machine)
 
-Two real WSL2/Gazebo issues surfaced getting this running — fix both before touching PX4:
+**Do NOT enable WSL2 mirrored networking mode (`networkingMode=mirrored` in `.wslconfig`) for this project.** We tried it — it was originally suspected as the fix for a `gz-transport` discovery issue that turned out to actually be the PX4/Gazebo startup race described below, unrelated to networking. Mirrored mode routes WSL2 traffic through Windows' real network stack, including Windows Defender Firewall, which **completely broke ROS 2 DDS discovery** (`ros2 topic list` hung indefinitely, even with nothing else running, even after a full `wsl --shutdown`) — a much worse problem than the one it was meant to solve. If a machine has mirrored mode enabled from following an older version of this doc, revert it: remove `networkingMode=mirrored` from `%USERPROFILE%\.wslconfig`, then `wsl --shutdown` from PowerShell and reopen your terminal. Plain default (NAT) networking is correct for this stack.
 
-1. **Mirrored networking.** WSL2's default NAT networking breaks `gz-transport`'s peer discovery in some configurations. Add to `%USERPROFILE%\.wslconfig` on Windows (create it if it doesn't exist):
-   ```ini
-   [wsl2]
-   networkingMode=mirrored
-   ```
-   Then from PowerShell: `wsl --shutdown`, and reopen your WSL2 terminal. Requires Windows 11 with a reasonably recent WSL version (`wsl --version`).
-2. **Multicast route.** Even with mirrored networking, WSL2 doesn't always get a default multicast route, which `gz-transport` discovery also depends on:
-   ```bash
-   sudo ip route add 224.0.0.0/4 dev eth1   # adjust eth1 if your interface is named differently (`ip -4 addr`)
-   ```
-   This doesn't persist across reboots/WSL restarts — re-run it if Gazebo discovery ever mysteriously breaks again after a restart. (In our specific debugging session, the actual blocking bug turned out to be the startup race described below, not this — but this was a real, independently-confirmed gap worth fixing regardless.)
+If Gazebo's own peer discovery (`gz-transport`, separate from ROS 2's DDS) ever seems broken independent of the above, a missing multicast route is a real, independently-confirmed gap worth checking:
+```bash
+ip route show | grep 224
+sudo ip route add 224.0.0.0/4 dev eth1   # if missing; adjust eth1 if your interface is named differently (`ip -4 addr`)
+```
+This doesn't persist across reboots/WSL restarts. In our debugging session this was never actually the blocking issue (the real one was the startup race below), but it's cheap to check.
 
 ## The PX4/Gazebo startup race (confirmed, applies regardless of which vehicle approach)
 
