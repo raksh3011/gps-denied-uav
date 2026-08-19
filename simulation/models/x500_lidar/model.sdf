@@ -1,0 +1,91 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <model name="x500_lidar">
+    <!-- Base vehicle: PX4's stock x500 quadrotor, unmodified. -->
+    <include merge="true">
+      <uri>model://x500</uri>
+    </include>
+
+    <!-- lidar_link: fixed to base_link at +0.05 fwd, +0.10 up (FLU / base_link frame).
+         This is the SOURCE OF TRUTH for the LiDAR extrinsic — the static
+         transform in real_localization.launch.xml and extrinsic_T in
+         fast_lio_x500.yaml must match this offset. Change all three
+         together if the mount moves. -->
+    <link name="lidar_link">
+      <pose relative_to="base_link">0.05 0 0.10 0 0 0</pose>
+      <inertial>
+        <mass>0.05</mass>
+        <inertia>
+          <ixx>0.00002</ixx><iyy>0.00002</iyy><izz>0.00002</izz>
+          <ixy>0</ixy><ixz>0</ixz><iyz>0</iyz>
+        </inertia>
+      </inertial>
+      <visual name="lidar_visual">
+        <geometry><cylinder><radius>0.03</radius><length>0.04</length></cylinder></geometry>
+        <material>
+          <ambient>0.1 0.1 0.1 1</ambient>
+          <diffuse>0.1 0.1 0.1 1</diffuse>
+        </material>
+      </visual>
+      <sensor name="lidar" type="gpu_lidar">
+        <pose>0 0 0 0 0 0</pose>
+        <topic>/world/default/model/x500_lidar/link/lidar_link/sensor/lidar/scan/points</topic>
+        <update_rate>10</update_rate>
+        <lidar>
+          <scan>
+            <horizontal>
+              <samples>1024</samples>
+              <resolution>1</resolution>
+              <min_angle>-3.14159265</min_angle>
+              <max_angle>3.14159265</max_angle>
+            </horizontal>
+            <vertical>
+              <samples>32</samples>
+              <resolution>1</resolution>
+              <min_angle>-0.4363323</min_angle>
+              <max_angle>0.2617994</max_angle>
+            </vertical>
+          </scan>
+          <range>
+            <min>0.3</min>
+            <max>100.0</max>
+            <resolution>0.01</resolution>
+          </range>
+        </lidar>
+        <always_on>true</always_on>
+        <visualize>false</visualize>
+      </sensor>
+    </link>
+
+    <joint name="lidar_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>lidar_link</child>
+    </joint>
+
+    <!-- imu_link: co-located with base_link's own origin (no offset). Kept
+         as a separate link/frame per docs/CONVENTIONS.md even though the
+         transform is identity, so the LIO backend's expected imu_link frame
+         always exists regardless of where base_link's own IMU plugin (used
+         by PX4 for flight control) is configured. -->
+    <link name="imu_link">
+      <pose relative_to="base_link">0 0 0 0 0 0</pose>
+      <inertial>
+        <mass>0.001</mass>
+        <inertia>
+          <ixx>1e-7</ixx><iyy>1e-7</iyy><izz>1e-7</izz>
+          <ixy>0</ixy><ixz>0</ixz><iyz>0</iyz>
+        </inertia>
+      </inertial>
+      <sensor name="imu" type="imu">
+        <topic>/world/default/model/x500_lidar/link/imu_link/sensor/imu/imu</topic>
+        <update_rate>200</update_rate>
+        <always_on>true</always_on>
+      </sensor>
+    </link>
+
+    <joint name="imu_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>imu_link</child>
+    </joint>
+  </model>
+</sdf>

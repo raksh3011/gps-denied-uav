@@ -39,7 +39,7 @@ colcon build --symlink-install
 ## Running the mocked pipeline
 
 ```bash
-ros2 launch uav_bringup mock_pipeline.launch.py
+ros2 launch uav_bringup mock_pipeline.launch.xml
 ```
 
 In another terminal, inspect topics:
@@ -79,4 +79,4 @@ Swap in the real node for a module as soon as it passes its own contract tests �
 
 ## C++ vs Python
 
-All ROS 2 nodes — mocks included — are **C++20**, matching the core real-time modules (LIO, planning, safety-critical control loops) they'll be replaced by. Python is reserved for tooling, evaluation scripts, and the pytest-based test harness (`tests/`), which drives the compiled C++ nodes as subprocesses over real topics rather than reimplementing their logic.
+Default to C++20 for everything — nodes, and launch files too (ROS 2 launch supports plain declarative XML via `<launch>`/`<node>`/`<include>` tags; see any `*.launch.xml` in this repo). Reach for Python only where there's no reasonable C++ alternative: the pytest-based test harness (`tests/`), which drives the compiled C++ nodes as subprocesses over real topics rather than reimplementing their logic, and any vendored upstream dependency that happens to ship Python (e.g. FAST-LIO2's own launch file, included via `<include>` — that's their code, not ours, and doesn't change what we write).

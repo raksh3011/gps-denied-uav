@@ -115,7 +115,7 @@ source /opt/ros/jazzy/setup.bash
 colcon build --symlink-install
 source install/setup.bash
 
-ros2 launch uav_bringup mock_pipeline.launch.py
+ros2 launch uav_bringup mock_pipeline.launch.xml
 ```
 
 Inspect the running pipeline:
@@ -153,7 +153,7 @@ All four developers can: clone the repo, start WSL2, build the workspace, launch
 
 **All four (day 1):**
 - Complete [setup/README.md](setup/README.md) on your own PC, confirm `verify_environment.sh` is all-PASS.
-- Clone, build, `ros2 launch uav_bringup mock_pipeline.launch.py`, confirm `/safety/vehicle_command` is publishing.
+- Clone, build, `ros2 launch uav_bringup mock_pipeline.launch.xml`, confirm `/safety/vehicle_command` is publishing.
 - Run `pytest tests/ -v`, confirm green.
 - Practice the PR flow once on a throwaway doc change into your feature branch -> `develop`.
 

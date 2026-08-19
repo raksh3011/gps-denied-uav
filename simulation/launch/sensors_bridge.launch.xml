@@ -1,0 +1,14 @@
+<!--
+  Bridges the simulated LiDAR + IMU from Gazebo into ROS 2 topics, per
+  uav_localization/config/ros_gz_bridge_lidar_imu.yaml. Requires a running
+  Gazebo world with the x500_lidar model (simulation/models/x500_lidar/).
+
+  This file has no package of its own (simulation/ isn't an ament package),
+  so launch it by path:
+    ros2 launch $(pwd)/simulation/launch/sensors_bridge.launch.xml
+-->
+<launch>
+  <node pkg="ros_gz_bridge" exec="parameter_bridge" name="lidar_imu_bridge" output="screen">
+    <param name="config_file" value="$(find-pkg-share uav_localization)/config/ros_gz_bridge_lidar_imu.yaml" />
+  </node>
+</launch>

@@ -1,0 +1,7 @@
+<!--
+  Top-level launch entry point. Delegates to uav_bringup so `ros2 launch`
+  works from a predictable repo-relative path in addition to the package name.
+-->
+<launch>
+  <include file="$(find-pkg-share uav_bringup)/launch/mock_pipeline.launch.xml" />
+</launch>

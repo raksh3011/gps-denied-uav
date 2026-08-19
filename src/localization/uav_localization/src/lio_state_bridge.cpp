@@ -18,7 +18,7 @@
 // LocalizationState contract every other module already builds against.
 //
 // This node does NOT run any estimation itself — FAST-LIO2 (or whichever
-// LIO backend is launched alongside it, see launch/real_localization.launch.py)
+// LIO backend is launched alongside it, see launch/real_localization.launch.xml)
 // owns the actual state estimate. This node's only job is the adapter
 // boundary: convert Odometry -> LocalizationState, and turn silence/staleness
 // from the backend into an honest localization_ok=false rather than letting

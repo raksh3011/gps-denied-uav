@@ -3,11 +3,13 @@
 # ROS 2 ports of FAST-LIO2 as of Jazzy; confirm against whatever fork gets
 # vendored in ../../../uav_localization.repos and adjust if field names differ.
 #
-# THIS IS A STARTING POINT, NOT A TUNED CONFIG. extrinsic_T/extrinsic_R must
-# be replaced with the measured/calibrated LiDAR->IMU transform once the real
-# sensor mount exists (coordinate with Person 4 on the vehicle model). Until
-# then this assumes LiDAR and IMU are co-located with no rotation, which will
-# produce visibly wrong odometry the moment the mount isn't literally that.
+# THIS IS A STARTING POINT, NOT A TUNED CONFIG (acc_cov/gyr_cov/etc. are
+# FAST-LIO2 defaults, not measured for our simulated IMU). extrinsic_T/
+# extrinsic_R below ARE real, though: they're read directly off
+# simulation/models/x500_lidar/model.sdf's lidar_link pose relative to
+# base_link (imu_link sits at base_link's own origin, so IMU-frame offset =
+# base_link-frame offset). If the mount in model.sdf changes, update both
+# this file and real_localization.launch.xml's static transform together.
 
 common:
   lid_topic: "/lidar/points"
@@ -28,8 +30,8 @@ mapping:
   fov_degree: 180.0
   det_range: 100.0
   extrinsic_est_en: false
-  extrinsic_T: [0.0, 0.0, 0.0]    # PLACEHOLDER — LiDAR origin in IMU frame, meters
-  extrinsic_R: [1.0, 0.0, 0.0,    # PLACEHOLDER — identity until calibrated
+  extrinsic_T: [0.05, 0.0, 0.10]  # lidar_link origin in imu_link frame, meters — from model.sdf
+  extrinsic_R: [1.0, 0.0, 0.0,    # identity — lidar_link carries no rotation relative to imu_link
                 0.0, 1.0, 0.0,
                 0.0, 0.0, 1.0]
 
