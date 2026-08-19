@@ -23,7 +23,7 @@ colcon test                        # ROS-level package tests
 pytest tests/ -v                   # unit/contract/integration tests
 ```
 
-`--symlink-install` means Python file edits (mock nodes, launch files) take effect without rebuilding; C++ changes still need a rebuild.
+`--symlink-install` means launch file edits take effect without rebuilding; all node code (including mocks) is C++, so any node change requires `colcon build` again.
 
 ## Running the mocked pipeline
 
@@ -65,4 +65,4 @@ Swap in the real node for a module as soon as it passes its own contract tests �
 
 ## C++ vs Python
 
-Core real-time modules (LIO, planning, safety-critical control loops) are **C++20**. Mocks, tooling, and test harnesses are Python — this is intentional to keep Milestone 1 fast to iterate on; do not port mocks to C++.
+All ROS 2 nodes — mocks included — are **C++20**, matching the core real-time modules (LIO, planning, safety-critical control loops) they'll be replaced by. Python is reserved for tooling, evaluation scripts, and the pytest-based test harness (`tests/`), which drives the compiled C++ nodes as subprocesses over real topics rather than reimplementing their logic.

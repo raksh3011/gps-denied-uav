@@ -1,20 +1,20 @@
-"""Contract tests that exercise real mock nodes over ROS 2 topics to verify
-producer/consumer compatibility, per docs/TESTING.md. Requires the workspace
-to be built and sourced. Run with: `pytest tests/contract -v`
+"""Contract tests that exercise the real (C++) mock nodes as subprocesses
+over ROS 2 topics to verify producer/consumer compatibility, per
+docs/TESTING.md. Requires the workspace to be built and sourced so
+`ros2 run <pkg> <exe>` resolves. Run with: `pytest tests/contract -v`
 """
+import subprocess
 import time
 
 import pytest
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
+from std_msgs.msg import UInt32
 
 from uav_interfaces.msg import (
     LocalizationState, Trajectory, TrajectoryPoint, VehicleCommand,
 )
-from uav_safety.mock_safety import MockSafety
-from uav_vehicle.mock_vehicle import MockVehicle
-
 
 SENSOR_QOS = QoSProfile(
     reliability=ReliabilityPolicy.BEST_EFFORT, history=HistoryPolicy.KEEP_LAST, depth=5)
@@ -27,6 +27,22 @@ def ros_context():
     rclpy.shutdown()
 
 
+class RunningNode:
+    """Launches a compiled mock node as a subprocess and tears it down."""
+
+    def __init__(self, package: str, executable: str):
+        self.proc = subprocess.Popen(
+            ['ros2', 'run', package, executable],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    def stop(self):
+        self.proc.terminate()
+        try:
+            self.proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            self.proc.kill()
+
+
 def spin_for(nodes, seconds):
     end = time.monotonic() + seconds
     while time.monotonic() < end:
@@ -35,25 +51,25 @@ def spin_for(nodes, seconds):
 
 
 def test_safety_rejects_stale_or_invalid_and_holds():
-    safety = MockSafety()
-    pub = Node('t_pub')
+    safety = RunningNode('uav_safety', 'mock_safety')
+    watcher = Node('t_watcher_stale')
     cmd_msgs = []
-    pub.create_subscription(
+    watcher.create_subscription(
         VehicleCommand, '/safety/vehicle_command', lambda m: cmd_msgs.append(m), SENSOR_QOS)
 
-    # No localization/trajectory published at all -> must hold, never claim valid.
-    spin_for([safety, pub], 0.3)
+    time.sleep(1.0)  # let the process come up
+    spin_for([watcher], 1.0)
 
-    safety.destroy_node()
-    pub.destroy_node()
+    safety.stop()
+    watcher.destroy_node()
 
-    assert len(cmd_msgs) > 0
+    assert len(cmd_msgs) > 0, 'no VehicleCommand observed from Safety'
     assert all(not m.valid for m in cmd_msgs)
     assert all(m.mode == VehicleCommand.MODE_HOLD for m in cmd_msgs)
 
 
 def test_safety_forwards_valid_command_when_inputs_healthy():
-    safety = MockSafety()
+    safety = RunningNode('uav_safety', 'mock_safety')
     driver = Node('t_driver')
     loc_pub = driver.create_publisher(LocalizationState, '/localization/state', SENSOR_QOS)
     traj_pub = driver.create_publisher(Trajectory, '/planning/trajectory', SENSOR_QOS)
@@ -71,15 +87,14 @@ def test_safety_forwards_valid_command_when_inputs_healthy():
     traj.points = [pt]
     traj.valid = True
 
-    nodes = [safety, driver]
-    end = time.monotonic() + 1.0
+    time.sleep(1.0)
+    end = time.monotonic() + 2.0
     while time.monotonic() < end:
         loc_pub.publish(loc)
         traj_pub.publish(traj)
-        for n in nodes:
-            rclpy.spin_once(n, timeout_sec=0.05)
+        rclpy.spin_once(driver, timeout_sec=0.05)
 
-    safety.destroy_node()
+    safety.stop()
     driver.destroy_node()
 
     assert any(m.valid for m in cmd_msgs), \
@@ -87,20 +102,27 @@ def test_safety_forwards_valid_command_when_inputs_healthy():
 
 
 def test_vehicle_rejects_invalid_commands():
-    vehicle = MockVehicle()
+    vehicle = RunningNode('uav_vehicle', 'mock_vehicle')
     driver = Node('t_veh_driver')
     cmd_pub = driver.create_publisher(VehicleCommand, '/safety/vehicle_command', SENSOR_QOS)
+    rejected = []
+    accepted = []
+    driver.create_subscription(
+        UInt32, '/vehicle/rejected_count', lambda m: rejected.append(m.data), SENSOR_QOS)
+    driver.create_subscription(
+        UInt32, '/vehicle/accepted_count', lambda m: accepted.append(m.data), SENSOR_QOS)
 
     invalid = VehicleCommand()
     invalid.valid = False
 
-    for _ in range(5):
+    time.sleep(1.0)
+    end = time.monotonic() + 2.0
+    while time.monotonic() < end:
         cmd_pub.publish(invalid)
-        rclpy.spin_once(vehicle, timeout_sec=0.05)
         rclpy.spin_once(driver, timeout_sec=0.05)
 
-    vehicle.destroy_node()
+    vehicle.stop()
     driver.destroy_node()
 
-    assert vehicle.rejected > 0
-    assert vehicle.accepted == 0
+    assert len(rejected) > 0, 'MockVehicle never reported a rejected command'
+    assert len(accepted) == 0, 'MockVehicle accepted an invalid command'
