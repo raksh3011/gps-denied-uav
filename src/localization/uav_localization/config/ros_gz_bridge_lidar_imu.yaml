@@ -1,22 +1,19 @@
 # ros_gz_bridge topic map: Gazebo (gz-transport) -> ROS 2.
 # Used by simulation/launch/sensors_bridge.launch.xml.
 #
-# Topic paths use "x500_0" — the actual spawned entity name PX4's gz_bridge
-# uses for the first vehicle instance (confirmed from real gz_bridge log
-# output: "model name: x500_0"), not "x500_lidar". Our sensors are patched
-# directly into the stock x500 model by setup/install_sim_sensors.sh — see
-# docs/LOCALIZATION.md for why there's no separately-named model. If you
-# ever run multiple SITL instances, later ones spawn as x500_1, x500_2, ...
-# and would need their own bridge entries.
+# Topic paths use "x500_lidar_0" — the static, statically-named vehicle
+# instance defined directly in simulation/worlds/x500_lidar.sdf (world name
+# "default"). See docs/LOCALIZATION.md for why the vehicle is placed
+# statically in a custom world rather than dynamically spawned by PX4.
 
 - ros_topic_name: "/lidar/points"
-  gz_topic_name: "/world/default/model/x500_0/link/lidar_link/sensor/lidar/scan/points"
+  gz_topic_name: "/world/default/model/x500_lidar_0/link/lidar_link/sensor/lidar/scan/points"
   ros_type_name: "sensor_msgs/msg/PointCloud2"
   gz_type_name: "gz.msgs.PointCloudPacked"
   direction: GZ_TO_ROS
 
 - ros_topic_name: "/imu/data"
-  gz_topic_name: "/world/default/model/x500_0/link/imu_link/sensor/imu/imu"
+  gz_topic_name: "/world/default/model/x500_lidar_0/link/imu_link/sensor/imu/imu"
   ros_type_name: "sensor_msgs/msg/Imu"
   gz_type_name: "gz.msgs.IMU"
   direction: GZ_TO_ROS
