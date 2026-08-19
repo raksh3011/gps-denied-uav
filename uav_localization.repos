@@ -2,7 +2,8 @@
 # Import with:
 #   vcs import src < uav_localization.repos
 #   rosdep install --from-paths src --ignore-src -r -y
-#   colcon build --packages-up-to fast_lio uav_localization
+#   ROS_DISTRO=humble colcon build --packages-select livox_ros_driver2 fast_lio
+#   colcon build --packages-up-to uav_localization   # normal ROS_DISTRO=jazzy for everything else
 #
 # FAST-LIO2 (HKU-MARS) is GPLv2-licensed. It is vendored as a SEPARATE ROS 2
 # node/process — uav_localization's lio_state_bridge talks to it only over
@@ -10,8 +11,27 @@
 # boundary is why the rest of this stack can stay Apache-2.0; it does NOT
 # make FAST-LIO2 itself any less GPLv2, so don't start #include-ing its
 # headers into an Apache-licensed package. See docs/LOCALIZATION.md.
+#
+# livox_ros_driver2 (Apache-2.0) is a HARD build dependency of the
+# Ericsii/FAST_LIO ros2 port below — its CMakeLists references Livox's
+# custom message type even when lidar_type in fast_lio_x500.yaml selects a
+# non-Livox sensor. rosdep can't resolve it (not in the rosdep database),
+# so it's vendored here too, not because we use Livox hardware.
+#
+# KNOWN BUILD QUIRK: livox_ros_driver2's CMakeLists checks $ROS_DISTRO
+# against a hardcoded list (foxy/galactic/humble/...) and does not
+# recognize "jazzy" — it will fail to configure with an unrecognized-distro
+# error. Workaround: `export ROS_DISTRO=humble` for the duration of building
+# ONLY this one package (the humble-branch message/build logic is what
+# jazzy also needs here), then restore `source /opt/ros/jazzy/setup.bash`
+# before building/running anything else. If this has been fixed upstream by
+# the time you read this, drop the workaround and this comment.
 repositories:
   fast_lio:
     type: git
     url: https://github.com/Ericsii/FAST_LIO.git
     version: ros2
+  livox_ros_driver2:
+    type: git
+    url: https://github.com/Livox-SDK/livox_ros_driver2.git
+    version: master

@@ -4,7 +4,7 @@ Owner: Person 1. This documents the real Localization implementation, layered on
 
 ## Status
 
-**Scaffolded and internally consistent, not yet verified end-to-end** (no ROS 2/Gazebo toolchain in the environment this was built in — see [Verifying this on your machine](#verifying-this-on-your-machine)). What exists now:
+**Confirmed on real hardware (2026-08-19, raksh's WSL2 machine):** `uav_localization` (including `lio_state_bridge`) builds clean, and 7 of the 8 core packages plus `uav_bringup` build clean via `colcon build`. The vendored `fast_lio` package itself does **not** yet build — see the first item below. Everything past that point (Gazebo model load onward) is still unverified.
 
 - `lio_state_bridge` (C++, builds and lints clean) — the adapter node, described below.
 - `simulation/models/x500_lidar/` — a real Gazebo model: PX4's stock `x500` plus a `gpu_lidar` on `lidar_link` and an `imu` sensor on `imu_link`, both fixed-jointed to `base_link`. This is the source of truth for the sensor mount, not a placeholder.
@@ -14,7 +14,7 @@ Owner: Person 1. This documents the real Localization implementation, layered on
 
 What's **not** done, and blocks actually running this:
 
-- The vendored `fast_lio` repo URL in `uav_localization.repos` is a best-guess at a maintained ROS 2 port; I could not verify it builds against Jazzy from this environment (no network/ROS access here). **First task: confirm it builds, or swap in whichever ROS 2 FAST-LIO2 fork you land on**, and update this doc plus `real_localization.launch.xml`'s `<include>` if the package/launch-file name differs.
+- **`fast_lio` doesn't build yet.** `colcon build` fails at its `CMakeLists.txt` because it hard-requires `livox_ros_driver2` (for message definitions) even for non-Livox sensors — confirmed on real hardware, not a guess. `uav_localization.repos` now vendors `livox_ros_driver2` too, plus a documented `ROS_DISTRO=humble` build-time workaround for a known quirk in *its* CMakeLists (it doesn't recognize "jazzy"). **This combination is still unverified** — the next person to touch this should re-run the build steps below and update this line with the actual result.
 - `x500_lidar/model.sdf` has never been loaded into Gazebo — it's written to the SDF 1.9 spec and to the same pattern PX4's own sensor-variant models (e.g. `x500_depth`) use, but a syntax slip is possible. First thing to check if Gazebo rejects it.
 - `PX4_GZ_MODEL=x500_lidar` requires the model to be discoverable — either copy `simulation/models/x500_lidar/` into `PX4-Autopilot/Tools/simulation/gz/models/`, or add this repo's `simulation/models` to `GZ_SIM_RESOURCE_PATH`. Not automated yet; a `setup/` script for this is a reasonable next addition.
 - `acc_cov`/`gyr_cov`/etc. in `fast_lio_x500.yaml` are FAST-LIO2's stock defaults, not tuned against the simulated IMU's actual noise characteristics.
@@ -60,10 +60,16 @@ This is intentionally conservative: `localization_ok` only goes `true` when data
 ## Build and run
 
 ```bash
-# one-time: vendor the LIO backend
+# one-time: vendor the LIO backend + its own hard dependency
 vcs import src < uav_localization.repos
 rosdep install --from-paths src --ignore-src -r -y
-colcon build --symlink-install
+
+# livox_ros_driver2's CMakeLists doesn't recognize "jazzy" as a ROS distro —
+# build it (and fast_lio, which needs its messages) under the workaround,
+# then go back to the real environment for everything else.
+ROS_DISTRO=humble colcon build --symlink-install --packages-select livox_ros_driver2 fast_lio
+source /opt/ros/jazzy/setup.bash
+colcon build --symlink-install --packages-up-to uav_localization uav_bringup
 source install/setup.bash
 
 # make the model discoverable (one-time; see Status above for alternatives)
@@ -113,7 +119,7 @@ Once (5) and (6) pass, this module has cleared the same bar `MockLocalization` a
 
 ## Next tasks, roughly in order
 
-1. Get the vendored FAST-LIO2 fork building against ROS 2 Jazzy; fix `uav_localization.repos` and `real_localization.launch.xml`'s assumed launch/topic names to match whatever actually works.
+1. Confirm `fast_lio` + `livox_ros_driver2` actually build with the `ROS_DISTRO=humble` workaround above. If it still fails, either fix forward (patch, or find a fork without the Livox dependency) or swap the vendored URL entirely — either way, update `uav_localization.repos` and this doc's "Status" section with the real outcome, not another guess.
 2. Confirm `x500_lidar/model.sdf` loads in Gazebo and its sensors publish (steps 1-2 above); fix any SDF syntax issues.
 3. Timestamp synchronization between the LiDAR and IMU sources (`docs/CONVENTIONS.md` calls this out as your responsibility) — confirm the sim sensors are already synced or add correction.
 4. Add contract tests for `lio_state_bridge` itself (currently only `MockLocalization`'s output is contract-tested) — same pattern as `tests/contract/test_node_contracts.py`, publishing synthetic `Odometry` and asserting the staleness/status table above, so step 5's manual check above becomes a `pytest` assertion.
