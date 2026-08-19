@@ -1,0 +1,43 @@
+# FAST-LIO2 parameters for our GPS-denied UAV stack, wired to the topics and
+# frames documented in docs/CONVENTIONS.md. Key names below match the common
+# ROS 2 ports of FAST-LIO2 as of Jazzy; confirm against whatever fork gets
+# vendored in ../../../uav_localization.repos and adjust if field names differ.
+#
+# THIS IS A STARTING POINT, NOT A TUNED CONFIG. extrinsic_T/extrinsic_R must
+# be replaced with the measured/calibrated LiDAR->IMU transform once the real
+# sensor mount exists (coordinate with Person 4 on the vehicle model). Until
+# then this assumes LiDAR and IMU are co-located with no rotation, which will
+# produce visibly wrong odometry the moment the mount isn't literally that.
+
+common:
+  lid_topic: "/lidar/points"
+  imu_topic: "/imu/data"
+  time_sync_en: false            # set true if LiDAR/IMU hardware timestamps aren't already synced
+
+preprocess:
+  lidar_type: 2                  # 2 = generic velodyne-style PointCloud2; change if using a Livox sensor
+  scan_line: 32
+  timestamp_unit: 2              # 2 = nanoseconds; must match the simulated/real sensor driver
+  blind: 0.5                     # meters, minimum range to reject (rotor/frame self-returns)
+
+mapping:
+  acc_cov: 0.1
+  gyr_cov: 0.1
+  b_acc_cov: 0.0001
+  b_gyr_cov: 0.0001
+  fov_degree: 180.0
+  det_range: 100.0
+  extrinsic_est_en: false
+  extrinsic_T: [0.0, 0.0, 0.0]    # PLACEHOLDER — LiDAR origin in IMU frame, meters
+  extrinsic_R: [1.0, 0.0, 0.0,    # PLACEHOLDER — identity until calibrated
+                0.0, 1.0, 0.0,
+                0.0, 0.0, 1.0]
+
+publish:
+  path_en: false
+  scan_publish_en: true
+  dense_publish_en: false
+  scan_bodyframe_pub_en: false
+
+pcd_save:
+  pcd_save_en: false

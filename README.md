@@ -64,8 +64,9 @@ gps-denied-uav/
 ├── launch/               # top-level launch entry points (delegates to uav_bringup)
 ├── scripts/               # dev utility scripts
 ├── setup/                 # environment install/verify scripts
-├── docs/                  # ARCHITECTURE, CONVENTIONS, INTERFACES, DEVELOPMENT, TESTING, GIT_WORKFLOW, TEAM_OWNERSHIP
+├── docs/                  # ARCHITECTURE, CONVENTIONS, INTERFACES, DEVELOPMENT, TESTING, GIT_WORKFLOW, TEAM_OWNERSHIP, LOCALIZATION
 ├── pytest.ini
+├── uav_localization.repos # vcs-vendored external deps (e.g. FAST-LIO2) — see docs/DEVELOPMENT.md
 ├── .github/workflows/ci.yml
 └── README.md
 ```

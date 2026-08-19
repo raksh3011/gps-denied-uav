@@ -23,6 +23,17 @@ colcon test                        # ROS-level package tests
 pytest tests/ -v                   # unit/contract/integration tests
 ```
 
+## Vendored dependencies
+
+Some modules depend on external packages not available via apt/rosdep (e.g. the FAST-LIO2 backend behind real Localization — see [docs/LOCALIZATION.md](LOCALIZATION.md)). These are vendored with `vcs` via a `.repos` file at the repo root, not committed into `src/` directly:
+
+```bash
+sudo apt install python3-vcstool   # if you don't have it: `vcs` isn't part of the base ROS 2 install
+vcs import src < uav_localization.repos
+rosdep install --from-paths src --ignore-src -r -y
+colcon build --symlink-install
+```
+
 `--symlink-install` means launch file edits take effect without rebuilding; all node code (including mocks) is C++, so any node change requires `colcon build` again.
 
 ## Running the mocked pipeline

@@ -17,6 +17,8 @@
 
 **Can develop independently using:** `MockLiDAR`, `MockIMU`
 
+**Status:** real localization scaffolding in progress — `lio_state_bridge` adapts a vendored FAST-LIO2 backend to the `LocalizationState` contract. `MockLocalization` keeps running unaffected; the rest of the team is not blocked on this. See [docs/LOCALIZATION.md](LOCALIZATION.md) for what's done, what's a placeholder, and the next tasks.
+
 ## Person 2 — World Model / Perception
 
 **Feature branch:** `feature/world-model`

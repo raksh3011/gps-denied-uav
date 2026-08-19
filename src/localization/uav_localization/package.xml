@@ -3,14 +3,17 @@
 <package format="3">
   <name>uav_localization</name>
   <version>0.1.0</version>
-  <description>Localization module (Person 1 owns). Currently provides MockLocalization (C++) for pipeline bring-up; real LiDAR-Inertial Odometry comes later.</description>
+  <description>Localization module (Person 1 owns). Provides MockLocalization (C++) for pipeline bring-up, and lio_state_bridge, the adapter that turns a vendored LIO backend's Odometry output into the frozen LocalizationState contract. See docs/LOCALIZATION.md.</description>
   <maintainer email="team@example.com">Person 1</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>rclcpp</depend>
+  <depend>nav_msgs</depend>
   <depend>uav_interfaces</depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>ros2launch</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

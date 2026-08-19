@@ -1,0 +1,17 @@
+# Vendored external dependencies that are not installed via apt/rosdep.
+# Import with:
+#   vcs import src < uav_localization.repos
+#   rosdep install --from-paths src --ignore-src -r -y
+#   colcon build --packages-up-to fast_lio uav_localization
+#
+# FAST-LIO2 (HKU-MARS) is GPLv2-licensed. It is vendored as a SEPARATE ROS 2
+# node/process — uav_localization's lio_state_bridge talks to it only over
+# ROS topics (nav_msgs/Odometry), never links against it. That process
+# boundary is why the rest of this stack can stay Apache-2.0; it does NOT
+# make FAST-LIO2 itself any less GPLv2, so don't start #include-ing its
+# headers into an Apache-licensed package. See docs/LOCALIZATION.md.
+repositories:
+  fast_lio:
+    type: git
+    url: https://github.com/Ericsii/FAST_LIO.git
+    version: ros2

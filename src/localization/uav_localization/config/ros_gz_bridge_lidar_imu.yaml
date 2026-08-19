@@ -1,0 +1,16 @@
+# ros_gz_bridge topic map: Gazebo (gz-transport) -> ROS 2.
+# Used by simulation/launch/sensors_bridge.launch.py. Update the Gazebo-side
+# topic names once the actual sensor-equipped vehicle model exists (see
+# docs/LOCALIZATION.md — coordinate with Person 4 on where the model lives).
+
+- ros_topic_name: "/lidar/points"
+  gz_topic_name: "/world/default/model/x500_lidar/link/lidar_link/sensor/lidar/scan/points"
+  ros_type_name: "sensor_msgs/msg/PointCloud2"
+  gz_type_name: "gz.msgs.PointCloudPacked"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/imu/data"
+  gz_topic_name: "/world/default/model/x500_lidar/link/imu_link/sensor/imu/imu"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  gz_type_name: "gz.msgs.IMU"
+  direction: GZ_TO_ROS
