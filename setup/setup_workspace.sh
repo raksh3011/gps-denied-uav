@@ -6,7 +6,11 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
 echo "== Sourcing ROS 2 Jazzy =="
+# ROS 2's setup.bash references some variables before assigning them,
+# which trips `set -u`. Relax it only for the sourcing itself.
+set +u
 source /opt/ros/jazzy/setup.bash
+set -u
 
 echo "== rosdep install for src/ =="
 rosdep install --from-paths src --ignore-src -r -y

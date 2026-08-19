@@ -61,6 +61,9 @@ Swap in the real node for a module as soon as it passes its own contract tests �
 | WSL2 clock drift causing weird ROS timestamps | `sudo hwclock -s` inside WSL2, or restart WSL2 (`wsl --shutdown` from PowerShell) |
 | `rosdep install` fails on an unknown key | run `rosdep update` first; if still failing, the package name may need adding to `/etc/ros/rosdep/sources.list.d/` — ask before hand-patching, file a note in this table |
 | PX4 SITL build very slow first time | expected — first `make px4_sitl` build compiles NuttX/toolchain deps, ~10-20 min on a typical laptop |
+| `install_dependencies.sh` errors on unrelated apt sources (`pkg.jenkins.io`, `packages.ros.org/ros/...`) | these are stale/unrelated entries some machines already had in `/etc/apt/sources.list.d/`, not added by this repo. Remove the offending `.list` file(s) and re-run `sudo apt update` before re-running the installer |
+| PX4's `ubuntu.sh` prints `error: externally-managed-environment` while installing its Python deps | upstream PX4 script hitting Ubuntu 24.04's PEP 668 pip restriction (unrelated to this repo's own Python setup). Non-fatal — PX4 still clones/builds; ignore unless a specific PX4 Python tool later turns out missing |
+| `setup_workspace.sh` fails with `AMENT_TRACE_SETUP_FILES: unbound variable` | ROS 2's `setup.bash` isn't `set -u`-safe. Already handled in `setup_workspace.sh` (relaxes `set -u` only around the `source` line) — if you hit this sourcing ROS manually in your own scripts, do the same: `set +u; source /opt/ros/jazzy/setup.bash; set -u` |
 | VS Code shows red squiggles on ROS headers | make sure you opened the folder via `code .` from inside WSL2, not from Windows Explorer / a Windows path |
 
 ## C++ vs Python
