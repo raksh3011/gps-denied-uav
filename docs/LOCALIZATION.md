@@ -6,12 +6,13 @@ Owner: Person 1. This documents the real Localization implementation, layered on
 
 **Confirmed (2026-08-19/20, raksh's WSL2 machine): `simulation/worlds/x500_lidar.sdf` loads cleanly in `gz sim` alone (no PX4) and publishes both `lidar_link` and `imu_link` sensor topics, alongside the stock `base_link` sensors** — `gz topic -l` lists `/world/default/model/x500_lidar_0/link/lidar_link/sensor/lidar/scan/points` and `.../link/imu_link/sensor/imu/imu`. This took two real fixes to get right (see [Why the vehicle+sensors are a static world file](#why-the-vehiclesensors-are-a-static-world-file)): reverting a stale patch left on `x500_base/model.sdf` from an earlier abandoned approach, and explicitly declaring Gazebo's `Sensors`/`Imu`/`AirPressure`/`Contact` system plugins on the world — which turned out to normally be loaded dynamically by PX4's own `gz_bridge` module during its spawn call, not by Gazebo automatically, so removing PX4 from the loop (the whole point of this approach) had silently also removed the thing that made sensors work at all.
 
+**Also confirmed: PX4 attaches to the running world via `PX4_GZ_MODEL_NAME=x500_lidar_0`** — logs `PX4_GZ_MODEL_NAME set, PX4 will attach to existing model`, reaches `pxh>` and `Ready for takeoff!`.
+
 What's still open, in order:
 
-1. **Confirm PX4 (`PX4_GZ_MODEL_NAME=x500_lidar_0`) attaches to the running world correctly.** This is the next thing to verify.
-2. Confirm FAST-LIO2 actually produces `/Odometry` from the real sensor topics.
-3. `acc_cov`/`gyr_cov`/etc. in `fast_lio_x500.yaml` are FAST-LIO2's stock defaults, not tuned against the simulated IMU's actual noise characteristics.
-4. `lio_state_bridge`'s confidence/status heuristic (see below) is a stand-in — timestamp-staleness-only, doesn't look at anything FAST-LIO2 exposes about registration quality/degeneracy.
+1. **Confirm the ROS 2 bridge relays `/lidar/points`/`/imu/data`, and FAST-LIO2 actually produces `/Odometry` from them.** This is the next thing to verify.
+2. `acc_cov`/`gyr_cov`/etc. in `fast_lio_x500.yaml` are FAST-LIO2's stock defaults, not tuned against the simulated IMU's actual noise characteristics.
+3. `lio_state_bridge`'s confidence/status heuristic (see below) is a stand-in — timestamp-staleness-only, doesn't look at anything FAST-LIO2 exposes about registration quality/degeneracy.
 
 ## Why this design
 
