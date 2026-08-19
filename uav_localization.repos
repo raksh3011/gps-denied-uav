@@ -1,9 +1,34 @@
 # Vendored external dependencies that are not installed via apt/rosdep.
-# Import with:
+#
+# CONFIRMED WORKING BUILD SEQUENCE (verified on real WSL2/Jazzy hardware,
+# 2026-08-19 — see docs/LOCALIZATION.md for the full story of what didn't
+# work first):
+#
 #   vcs import src < uav_localization.repos
 #   rosdep install --from-paths src --ignore-src -r -y
-#   ROS_DISTRO=humble colcon build --packages-select livox_ros_driver2 fast_lio
-#   colcon build --packages-up-to uav_localization   # normal ROS_DISTRO=jazzy for everything else
+#
+#   # 1. fast_lio pulls in HKU-MARS's ikd-Tree as a git submodule; vcs
+#   #    import does not initialize submodules.
+#   (cd src/fast_lio && git submodule update --init --recursive)
+#
+#   # 2. livox_ros_driver2 ships two variant manifests instead of a plain
+#   #    package.xml — pick the ROS 2 one.
+#   cp src/livox_ros_driver2/package_ROS2.xml src/livox_ros_driver2/package.xml
+#
+#   # 3. livox_ros_driver2 links against the Livox-SDK2 native C++ library,
+#   #    which is not a ROS package and must be built/installed separately:
+#   #      git clone https://github.com/Livox-SDK/Livox-SDK2.git ~/Livox-SDK2
+#   #      cd ~/Livox-SDK2 && mkdir build && cd build && cmake .. && make -j && sudo make install
+#
+#   # 4. livox_ros_driver2 needs a two-phase build (generate its message
+#   #    headers, then reconfigure to find them) that plain `colcon build`
+#   #    doesn't handle — use its own build script, which DOES recognize
+#   #    "jazzy" natively (no ROS_DISTRO override needed):
+#   source /opt/ros/jazzy/setup.bash
+#   (cd src/livox_ros_driver2 && ./build.sh jazzy)
+#   # this also builds everything else already in the workspace as a side
+#   # effect, EXCEPT fast_lio if step 1's submodule wasn't done yet — if so:
+#   colcon build --symlink-install --packages-select fast_lio
 #
 # FAST-LIO2 (HKU-MARS) is GPLv2-licensed. It is vendored as a SEPARATE ROS 2
 # node/process — uav_localization's lio_state_bridge talks to it only over
@@ -16,16 +41,10 @@
 # Ericsii/FAST_LIO ros2 port below — its CMakeLists references Livox's
 # custom message type even when lidar_type in fast_lio_x500.yaml selects a
 # non-Livox sensor. rosdep can't resolve it (not in the rosdep database),
-# so it's vendored here too, not because we use Livox hardware.
-#
-# KNOWN BUILD QUIRK: livox_ros_driver2's CMakeLists checks $ROS_DISTRO
-# against a hardcoded list (foxy/galactic/humble/...) and does not
-# recognize "jazzy" — it will fail to configure with an unrecognized-distro
-# error. Workaround: `export ROS_DISTRO=humble` for the duration of building
-# ONLY this one package (the humble-branch message/build logic is what
-# jazzy also needs here), then restore `source /opt/ros/jazzy/setup.bash`
-# before building/running anything else. If this has been fixed upstream by
-# the time you read this, drop the workaround and this comment.
+# so it's vendored here too, not because we use Livox hardware. Its own
+# runtime SDK dependency (Livox-SDK2, step 3 above) is likewise unused at
+# runtime — we only need livox_ros_driver2 to compile, never to talk to
+# actual Livox hardware.
 repositories:
   fast_lio:
     type: git
