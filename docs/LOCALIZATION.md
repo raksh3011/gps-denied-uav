@@ -8,9 +8,13 @@ Owner: Person 1. This documents the real Localization implementation, layered on
 
 **Also confirmed: PX4 attaches to the running world via `PX4_GZ_MODEL_NAME=x500_lidar_0`** — logs `PX4_GZ_MODEL_NAME set, PX4 will attach to existing model`, reaches `pxh>` and `Ready for takeoff!`.
 
+**Also confirmed: the ROS 2 bridge relays real data end-to-end** — `/imu/data` and `/lidar/points` both appear in `ros2 topic list`, and `ros2 topic hz /imu/data` measures ~195 Hz (matching the configured 200 Hz, low jitter). The full chain — Gazebo sensors -> `gz-transport` -> `ros_gz_bridge` -> ROS 2 topics — works.
+
+One environment-level regression surfaced and was fixed along the way: **do not enable WSL2 mirrored networking for this project** — see [WSL2 environment prerequisites](#wsl2-environment-prerequisites-one-time-per-machine) below, it broke ROS 2 DDS discovery entirely.
+
 What's still open, in order:
 
-1. **Confirm the ROS 2 bridge relays `/lidar/points`/`/imu/data`, and FAST-LIO2 actually produces `/Odometry` from them.** This is the next thing to verify.
+1. **Confirm FAST-LIO2 actually produces `/Odometry` from the real sensor topics.** This is the next thing to verify — everything upstream of it (sensors -> ROS 2 topics) is now confirmed working.
 2. `acc_cov`/`gyr_cov`/etc. in `fast_lio_x500.yaml` are FAST-LIO2's stock defaults, not tuned against the simulated IMU's actual noise characteristics.
 3. `lio_state_bridge`'s confidence/status heuristic (see below) is a stand-in — timestamp-staleness-only, doesn't look at anything FAST-LIO2 exposes about registration quality/degeneracy.
 
