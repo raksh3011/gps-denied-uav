@@ -4,13 +4,14 @@ Owner: Person 1. This documents the real Localization implementation, layered on
 
 ## Status
 
-**PX4 SITL reaches a flyable `pxh>` prompt against the plain stock vehicle (confirmed, 2026-08-19, raksh's WSL2 machine).** Getting our own LiDAR + IMU sensors actually visible in the simulation is **not yet confirmed** — two different approaches were tried and debugged at length; see [Why the vehicle+sensors are a static world file](#why-the-vehiclesensors-are-a-static-world-file) for what didn't work and why, and [Build and run](#build-and-run) for the current approach, which has not yet been verified end-to-end (the switch happened mid-session). What's still open, in order:
+**Confirmed (2026-08-19/20, raksh's WSL2 machine): `simulation/worlds/x500_lidar.sdf` loads cleanly in `gz sim` alone (no PX4) and publishes both `lidar_link` and `imu_link` sensor topics, alongside the stock `base_link` sensors** — `gz topic -l` lists `/world/default/model/x500_lidar_0/link/lidar_link/sensor/lidar/scan/points` and `.../link/imu_link/sensor/imu/imu`. This took two real fixes to get right (see [Why the vehicle+sensors are a static world file](#why-the-vehiclesensors-are-a-static-world-file)): reverting a stale patch left on `x500_base/model.sdf` from an earlier abandoned approach, and explicitly declaring Gazebo's `Sensors`/`Imu`/`AirPressure`/`Contact` system plugins on the world — which turned out to normally be loaded dynamically by PX4's own `gz_bridge` module during its spawn call, not by Gazebo automatically, so removing PX4 from the loop (the whole point of this approach) had silently also removed the thing that made sensors work at all.
 
-1. **Confirm `simulation/worlds/x500_lidar.sdf` actually loads and publishes sensor topics** — this can and should be checked with `gz sim` alone, no PX4 involved. This is the very next thing to do, before anything else in this list.
-2. Confirm PX4 (`PX4_GZ_MODEL_NAME=x500_lidar_0`) attaches to it correctly.
-3. Confirm FAST-LIO2 actually produces `/Odometry` from the real sensor topics.
-4. `acc_cov`/`gyr_cov`/etc. in `fast_lio_x500.yaml` are FAST-LIO2's stock defaults, not tuned against the simulated IMU's actual noise characteristics.
-5. `lio_state_bridge`'s confidence/status heuristic (see below) is a stand-in — timestamp-staleness-only, doesn't look at anything FAST-LIO2 exposes about registration quality/degeneracy.
+What's still open, in order:
+
+1. **Confirm PX4 (`PX4_GZ_MODEL_NAME=x500_lidar_0`) attaches to the running world correctly.** This is the next thing to verify.
+2. Confirm FAST-LIO2 actually produces `/Odometry` from the real sensor topics.
+3. `acc_cov`/`gyr_cov`/etc. in `fast_lio_x500.yaml` are FAST-LIO2's stock defaults, not tuned against the simulated IMU's actual noise characteristics.
+4. `lio_state_bridge`'s confidence/status heuristic (see below) is a stand-in — timestamp-staleness-only, doesn't look at anything FAST-LIO2 exposes about registration quality/degeneracy.
 
 ## Why this design
 
@@ -170,8 +171,7 @@ Once (5) and (6) pass, this module has cleared the same bar `MockLocalization` a
 
 ## Next tasks, roughly in order
 
-1. Run verification step 1 above — confirm `simulation/worlds/x500_lidar.sdf` actually loads in `gz sim` and publishes `lidar_link`/`imu_link` sensor topics. Nothing else in this document is confirmed until this passes; do it before touching PX4.
-2. Run verification steps 2-4 — confirm PX4 attaches via `PX4_GZ_MODEL_NAME`, the ROS 2 bridge relays the topics, and FAST-LIO2 produces `/Odometry`.
+1. Run verification steps 2-4 — confirm PX4 attaches via `PX4_GZ_MODEL_NAME`, the ROS 2 bridge relays the topics, and FAST-LIO2 produces `/Odometry`. (Step 1 — the world loading and publishing sensor topics with `gz sim` alone — is confirmed, see Status above.)
 3. Timestamp synchronization between the LiDAR and IMU sources (`docs/CONVENTIONS.md` calls this out as your responsibility) — confirm the sim sensors are already synced or add correction.
 4. Add contract tests for `lio_state_bridge` itself (currently only `MockLocalization`'s output is contract-tested) — same pattern as `tests/contract/test_node_contracts.py`, publishing synthetic `Odometry` and asserting the staleness/status table above, so verification step 5 above becomes a `pytest` assertion.
 5. Improve the confidence heuristic past "is it fresh" — look at what the vendored backend actually exposes about registration quality (e.g. FAST-LIO2's ESKF covariance) instead of a fixed 0.9/0.3/0.0.
