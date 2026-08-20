@@ -140,7 +140,9 @@ void DStarLitePlanner::computeShortestPath()
     } else if (g_[u] > rhs_[u]) {
       g_[u] = rhs_[u];
       in_queue_[u] = false;
-      for (int s : neighborIds(u)) {updateVertex(s);}
+      for (int s : neighborIds(u)) {
+        updateVertex(s);
+      }
     } else {
       // g_[u] <= rhs_[u]: u got (or stayed) worse. Conservative but
       // definitely-correct handling: invalidate u and let updateVertex
@@ -150,7 +152,9 @@ void DStarLitePlanner::computeShortestPath()
       // update, not a correctness gap.
       g_[u] = kInf;
       updateVertex(u);
-      for (int s : neighborIds(u)) {updateVertex(s);}
+      for (int s : neighborIds(u)) {
+        updateVertex(s);
+      }
     }
   }
 }
@@ -272,7 +276,9 @@ std::vector<Eigen::Vector3d> DStarLitePlanner::update(
   const std::vector<int> changed = diffAndUpdateSnapshot(grid);
   for (int id : changed) {
     updateVertex(id);
-    for (int n : neighborIds(id)) {updateVertex(n);}
+    for (int n : neighborIds(id)) {
+      updateVertex(n);
+    }
   }
 
   computeShortestPath();

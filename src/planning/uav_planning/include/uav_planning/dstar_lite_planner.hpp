@@ -109,7 +109,7 @@ private:
 
   std::vector<double> g_;
   std::vector<double> rhs_;
-  std::vector<Key> best_key_;     // most recently pushed key per id, for lazy-deletion staleness checks
+  std::vector<Key> best_key_;     // most recently pushed key per id, for lazy-deletion checks
   std::vector<bool> in_queue_;
   std::priority_queue<QueueEntry, std::vector<QueueEntry>, QueueEntryGreater> queue_;
 
