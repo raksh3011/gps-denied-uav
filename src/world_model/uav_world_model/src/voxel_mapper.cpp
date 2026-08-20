@@ -35,13 +35,13 @@ VoxelMapper::VoxelMapper(const VoxelMapperParams & params)
 size_t VoxelMapper::flatten(int x, int y, int z) const
 {
   return static_cast<size_t>(x) + static_cast<size_t>(y) * params_.size_x +
-    static_cast<size_t>(z) * params_.size_x * params_.size_y;
+         static_cast<size_t>(z) * params_.size_x * params_.size_y;
 }
 
 bool VoxelMapper::inBounds(int x, int y, int z) const
 {
   return x >= 0 && x < params_.size_x && y >= 0 && y < params_.size_y &&
-    z >= 0 && z < params_.size_z;
+         z >= 0 && z < params_.size_z;
 }
 
 Eigen::Vector3d VoxelMapper::voxelCenter(int x, int y, int z) const

@@ -29,7 +29,7 @@ std::vector<VoxelCluster> clusterOccupied(const VoxelMapper & map, int min_voxel
   std::vector<bool> visited(static_cast<size_t>(sx) * sy * sz, false);
   auto flat = [sx, sy](int x, int y, int z) {
       return static_cast<size_t>(x) + static_cast<size_t>(y) * sx +
-        static_cast<size_t>(z) * sx * sy;
+             static_cast<size_t>(z) * sx * sy;
     };
 
   std::vector<VoxelCluster> clusters;
