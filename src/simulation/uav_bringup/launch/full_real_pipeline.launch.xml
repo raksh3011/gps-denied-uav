@@ -6,11 +6,15 @@
 
   Real: Localization (LiDAR/IMU -> FAST-LIO2 -> lio_state_bridge),
   World Model (real_world_model, clustering FAST-LIO2's own
-  /cloud_registered — the actual live map, not a synthetic one), Planning
-  (Theta* + D* Lite + CARM), Safety (real_safety — staleness/validity
-  gating, an independent obstacle-clearance check, sustained-loss
-  escalation to MODE_LAND, see docs/SAFETY.md). Still mocked: Mission,
-  Vehicle/PX4 command interface (see docs/TEAM_OWNERSHIP.md for what's left).
+  /cloud_registered — the actual live map, not a synthetic one), Mission
+  (real_mission — waypoint-sequencing state machine, default params match
+  the old golden scenario, see docs/MISSION.md), Planning (Theta* + D*
+  Lite + CARM), Safety (real_safety — staleness/validity gating, an
+  independent obstacle-clearance check, sustained-loss escalation to
+  MODE_LAND, see docs/SAFETY.md). Still mocked: Vehicle/PX4 command
+  interface — real_vehicle exists but is UNVERIFIED against real PX4
+  (see docs/VEHICLE.md); swap it in manually once px4_msgs is vendored
+  and you've confirmed the topic names/enum values against your PX4.
 
   RViz shows the SAME /viz/* topics as demo_mission.launch.xml
   (viz_bridge is demo-visualization-only, not part of any real module) —
@@ -29,16 +33,16 @@
        simulated sensors into /lidar/points and /imu/data.
     3. The vendored FAST-LIO2 backend built (uav_localization.repos).
 
-  Mission goal: mock_mission's fixed target is (10, 0, 3) in the map
-  frame — check that against where x500_lidar.sdf spawns the vehicle so
-  the goal is actually reachable within the world's extent; adjust
-  mock_mission.cpp if not.
+  Mission goal: real_mission's default fixed target is (10, 0, 3) in the
+  map frame — check that against where x500_lidar.sdf spawns the vehicle
+  so the goal is actually reachable within the world's extent; override
+  via a params file (see src/mission/uav_mission/config/) if not.
 -->
 <launch>
   <include file="$(find-pkg-share uav_localization)/launch/real_localization.launch.xml" />
 
   <node pkg="uav_world_model" exec="real_world_model" name="real_world_model" output="screen" />
-  <node pkg="uav_mission" exec="mock_mission" name="mock_mission" output="screen" />
+  <node pkg="uav_mission" exec="real_mission" name="real_mission" output="screen" />
   <node pkg="uav_planning" exec="real_planner" name="real_planner" output="screen" />
   <node pkg="uav_safety" exec="real_safety" name="real_safety" output="screen" />
   <node pkg="uav_vehicle" exec="mock_vehicle" name="mock_vehicle" output="screen" />

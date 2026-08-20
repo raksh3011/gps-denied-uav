@@ -62,6 +62,7 @@ Real implementations plug into the exact topics/messages their mock used, alongs
 - World Model: point cloud (`/cloud_registered`) + `LocalizationState` -> rolling voxel occupancy window + obstacle clustering/tracking (`real_world_model`) -> `LocalMap`/`ObstacleSet`. See [docs/WORLD_MODEL.md](WORLD_MODEL.md).
 - Safety: `LocalizationState`/`Trajectory`/`LocalMap`/`ObstacleSet`/`PlannerStatus` -> staleness/validity gating + independent obstacle-clearance check + sustained-loss escalation (`real_safety`) -> `VehicleCommand`/`SystemHealth`. See [docs/SAFETY.md](SAFETY.md).
 - Vehicle/PX4 Interface: `VehicleCommand` -> ENU/NED conversion + PX4 setpoint/command translation (`real_vehicle`) -> PX4 over uXRCE-DDS. Core logic tested; the PX4-facing part is unverified — see [docs/VEHICLE.md](VEHICLE.md) before assuming it works.
+- Mission: ROS params (waypoint list) + `LocalizationState` -> waypoint-sequencing state machine (`real_mission`) -> `Mission`. See [docs/MISSION.md](MISSION.md).
 
 ## Why mocks first
 

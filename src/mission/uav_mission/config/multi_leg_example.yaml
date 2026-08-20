@@ -1,0 +1,23 @@
+# Example multi-waypoint mission for real_mission — proves the waypoint-
+# sequencing state machine actually advances through a route, not just
+# the single-target golden scenario. Load with:
+#   ros2 run uav_mission real_mission --ros-args --params-file
+#     src/mission/uav_mission/config/multi_leg_example.yaml
+#
+# Three legs: two NAV waypoints threading toward a final TARGET. All
+# arrays must stay the same length — real_mission_node validates this
+# and falls back to an empty mission (logged as an error) rather than
+# publishing a mismatched one.
+/**:
+  ros__parameters:
+    mission_id: "multi-leg-example"
+    max_speed: 3.0
+    boundary_radius: 50.0
+    min_altitude: 1.0
+    max_altitude: 20.0
+    waypoint_x: [4.0, 8.0, 10.0]
+    waypoint_y: [0.0, 3.0, 0.0]
+    waypoint_z: [2.0, 2.5, 3.0]
+    waypoint_yaw: [.nan, .nan, .nan]
+    waypoint_acceptance_radius: [0.75, 0.75, 0.5]
+    waypoint_type: [0, 0, 1]   # TYPE_NAV, TYPE_NAV, TYPE_TARGET

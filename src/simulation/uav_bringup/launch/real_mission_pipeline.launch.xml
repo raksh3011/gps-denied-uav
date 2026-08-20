@@ -1,0 +1,17 @@
+<!--
+  Same pipeline as mock_pipeline.launch.xml, except Mission is real:
+  a waypoint-sequencing state machine (uav_mission's real_mission,
+  see docs/MISSION.md), instead of MockMission. Default params replicate
+  MockMission's single-target golden scenario exactly, so this is a
+  behavior-identical drop-in swap out of the box — pass a params file
+  (e.g. src/mission/uav_mission/config/multi_leg_example.yaml) to see it
+  actually sequence a multi-leg route instead.
+-->
+<launch>
+  <node pkg="uav_localization" exec="mock_localization" name="mock_localization" output="screen" />
+  <node pkg="uav_world_model" exec="mock_world_model" name="mock_world_model" output="screen" />
+  <node pkg="uav_mission" exec="real_mission" name="real_mission" output="screen" />
+  <node pkg="uav_planning" exec="mock_planner" name="mock_planner" output="screen" />
+  <node pkg="uav_safety" exec="mock_safety" name="mock_safety" output="screen" />
+  <node pkg="uav_vehicle" exec="mock_vehicle" name="mock_vehicle" output="screen" />
+</launch>

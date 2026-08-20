@@ -3,7 +3,7 @@
 <package format="3">
   <name>uav_mission</name>
   <version>0.1.0</version>
-  <description>Mission Manager module (Person 4 owns). Provides MockMission (C++) for pipeline bring-up.</description>
+  <description>Mission Manager module (Person 4 owns). MockMission for pipeline bring-up, plus the real MissionManager-backed real_mission (see docs/MISSION.md).</description>
   <maintainer email="team@example.com">Person 4</maintainer>
   <license>Apache-2.0</license>
 
@@ -11,9 +11,11 @@
 
   <depend>rclcpp</depend>
   <depend>uav_interfaces</depend>
+  <depend>eigen</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
+  <test_depend>ament_cmake_gtest</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

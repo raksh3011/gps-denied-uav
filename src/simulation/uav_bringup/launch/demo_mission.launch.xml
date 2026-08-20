@@ -4,7 +4,7 @@
 
     demo_world  -> synthetic LiDAR cloud of a pillar arena (/cloud_registered)
     real_world_model -> builds the live voxel map + tracked obstacles (REAL)
-    mock_mission     -> goal at (10, 0, 3)
+    real_mission     -> goal at (10, 0, 3), default params (REAL, see docs/MISSION.md)
     real_planner     -> Theta* + D* Lite + CARM (REAL)
     demo_flyer       -> flies the vehicle along the planner's own trajectory
     viz_bridge/rviz2 -> what you watch
@@ -36,7 +36,7 @@
     <param name="recenter_threshold_m" value="1000.0" />
     <param name="min_cluster_voxels" value="4" />
   </node>
-  <node pkg="uav_mission" exec="mock_mission" name="mock_mission" output="screen" />
+  <node pkg="uav_mission" exec="real_mission" name="real_mission" output="screen" />
   <node pkg="uav_planning" exec="real_planner" name="real_planner" output="screen" />
   <node pkg="uav_safety" exec="real_safety" name="real_safety" output="screen" />
   <node pkg="uav_vehicle" exec="mock_vehicle" name="mock_vehicle" output="screen" />
