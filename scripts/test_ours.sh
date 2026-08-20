@@ -29,7 +29,11 @@ for pkg in "${OURS[@]}"; do
   fi
 done
 
+# ROS setup scripts reference unset variables (COLCON_TRACE), which our
+# `set -u` would treat as a fatal error — relax it just for the source.
+set +u
 # shellcheck disable=SC1091
 source install/setup.bash
+set -u
 pytest tests/contract -v
 pytest tests/integration -v
