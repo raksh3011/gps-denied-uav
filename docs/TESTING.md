@@ -49,3 +49,7 @@ pytest tests/ -v
 - Contract tests belong with the interface they validate, in `tests/contract/`, not inside a module package — they must be able to fail independent of which side (producer or consumer) is wrong.
 - Prefer testing against real mock nodes over topics (as in `test_node_contracts.py`) rather than calling internal functions directly — this catches QoS/serialization issues that a plain function call would miss.
 - Every new `.msg` field that has a validity condition (see [CONVENTIONS.md](CONVENTIONS.md#error--status-conventions)) needs a contract test asserting consumers respect it.
+
+## Vendored packages and `colcon test`
+
+A bare `colcon test` (no `--packages-select`) also runs the test suites of the vendored `fast_lio` / `livox_ros_driver2` packages. Their upstream code fails our ament lint checks by the hundreds (800+ cpplint/flake8/copyright "failures") — that noise says nothing about our stack. Use `./scripts/test_ours.sh` (add `LOW_MEM=1` on <4GB machines), or scope manually with `--packages-select uav_...`.
