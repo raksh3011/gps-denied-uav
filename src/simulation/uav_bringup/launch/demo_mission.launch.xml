@@ -19,6 +19,11 @@
   throughout). max_cluster_height_m uses the package default (1.2m) —
   it's what keeps the arena's 2.5m pillars from becoming over-wide
   bounding spheres that wall off every corridor (see docs/WORLD_MODEL.md).
+
+  real_safety is along for the ride too (see docs/SAFETY.md) — it has no
+  effect on the demo's motion since demo_flyer follows /planning/trajectory
+  directly, not /safety/vehicle_command, but its SystemHealth/VehicleCommand
+  output is real and worth watching (`ros2 topic echo /safety/system_health`).
 -->
 <launch>
   <node pkg="uav_bringup" exec="demo_world" name="demo_world" output="screen" />
@@ -33,7 +38,7 @@
   </node>
   <node pkg="uav_mission" exec="mock_mission" name="mock_mission" output="screen" />
   <node pkg="uav_planning" exec="real_planner" name="real_planner" output="screen" />
-  <node pkg="uav_safety" exec="mock_safety" name="mock_safety" output="screen" />
+  <node pkg="uav_safety" exec="real_safety" name="real_safety" output="screen" />
   <node pkg="uav_vehicle" exec="mock_vehicle" name="mock_vehicle" output="screen" />
   <node pkg="uav_bringup" exec="viz_bridge" name="viz_bridge" output="screen" />
   <node pkg="rviz2" exec="rviz2" name="rviz2"

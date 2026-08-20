@@ -70,6 +70,8 @@
 
 **Can develop independently using:** `MockPlanner`, `MockLocalization`
 
+**Status:** real Safety Supervisor implemented and unit/contract-tested — `real_safety` backed by a ROS-free core (`SafetyMonitor`: staleness/validity gating across all five subscribed contracts, an independent obstacle-clearance check that doesn't trust Planning's own `valid` flag, sustained-localization-loss escalation to an explicit `MODE_LAND`). Deliberately defers to Planning's CARM for DEGRADED localization rather than double-reacting — see [docs/SAFETY.md](SAFETY.md). Mission and the PX4/Vehicle interface are still mocks.
+
 ## Cross-cutting
 
 Interface definitions (`src/interfaces/uav_interfaces`) are jointly owned — no single person merges a change without the other three reviewing, per [GIT_WORKFLOW.md](GIT_WORKFLOW.md#rules). Conventions (`docs/CONVENTIONS.md`) are likewise frozen by team agreement, not by any one owner.

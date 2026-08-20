@@ -7,8 +7,10 @@
   Real: Localization (LiDAR/IMU -> FAST-LIO2 -> lio_state_bridge),
   World Model (real_world_model, clustering FAST-LIO2's own
   /cloud_registered — the actual live map, not a synthetic one), Planning
-  (Theta* + D* Lite + CARM). Still mocked: Mission, Safety, Vehicle/PX4
-  command interface (see docs/TEAM_OWNERSHIP.md for what's left).
+  (Theta* + D* Lite + CARM), Safety (real_safety — staleness/validity
+  gating, an independent obstacle-clearance check, sustained-loss
+  escalation to MODE_LAND, see docs/SAFETY.md). Still mocked: Mission,
+  Vehicle/PX4 command interface (see docs/TEAM_OWNERSHIP.md for what's left).
 
   RViz shows the SAME /viz/* topics as demo_mission.launch.xml
   (viz_bridge is demo-visualization-only, not part of any real module) —
@@ -38,7 +40,7 @@
   <node pkg="uav_world_model" exec="real_world_model" name="real_world_model" output="screen" />
   <node pkg="uav_mission" exec="mock_mission" name="mock_mission" output="screen" />
   <node pkg="uav_planning" exec="real_planner" name="real_planner" output="screen" />
-  <node pkg="uav_safety" exec="mock_safety" name="mock_safety" output="screen" />
+  <node pkg="uav_safety" exec="real_safety" name="real_safety" output="screen" />
   <node pkg="uav_vehicle" exec="mock_vehicle" name="mock_vehicle" output="screen" />
   <node pkg="uav_bringup" exec="viz_bridge" name="viz_bridge" output="screen" />
   <node pkg="rviz2" exec="rviz2" name="rviz2"

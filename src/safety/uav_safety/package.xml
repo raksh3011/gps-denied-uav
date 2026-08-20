@@ -3,7 +3,7 @@
 <package format="3">
   <name>uav_safety</name>
   <version>0.1.0</version>
-  <description>Safety Supervisor module (Person 4 owns). Provides MockSafety (C++) for pipeline bring-up.</description>
+  <description>Safety Supervisor module (Person 4 owns). MockSafety for pipeline bring-up, plus the real SafetyMonitor-backed real_safety (see docs/SAFETY.md).</description>
   <maintainer email="team@example.com">Person 4</maintainer>
   <license>Apache-2.0</license>
 
@@ -11,9 +11,11 @@
 
   <depend>rclcpp</depend>
   <depend>uav_interfaces</depend>
+  <depend>eigen</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
+  <test_depend>ament_cmake_gtest</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
