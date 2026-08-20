@@ -19,7 +19,15 @@ fi
 
 colcon build "${BUILD_ARGS[@]}" --packages-select "${OURS[@]}"
 colcon test --executor sequential --packages-select "${OURS[@]}"
-colcon test-result --verbose
+
+# Scope the result scan to our packages: a bare `colcon test-result` reads
+# ALL of build/, including stale cached results from any earlier full run
+# of the vendored packages' test suites.
+for pkg in "${OURS[@]}"; do
+  if [[ -d "build/${pkg}/test_results" ]]; then
+    colcon test-result --test-result-base "build/${pkg}" --verbose
+  fi
+done
 
 # shellcheck disable=SC1091
 source install/setup.bash
