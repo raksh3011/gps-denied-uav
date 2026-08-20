@@ -181,7 +181,15 @@ def test_degraded_localization_still_forwards_command():
 
 
 def test_stale_localization_holds_with_invalid_command():
-    safety = RunningNode('uav_safety', 'real_safety')
+    # lost_hold_timeout_s pushed out of reach: this test isolates the
+    # immediate hold behavior, not the sustained-loss LAND escalation
+    # (covered separately by test_sustained_localization_loss_escalates_
+    # to_land) — the node ticks continuously from startup, so the settle
+    # period's elapsed time counts too and would otherwise trip the
+    # default 3.0s threshold partway through this test's own window.
+    safety = RunningNode(
+        'uav_safety', 'real_safety',
+        '--ros-args', '-p', 'lost_hold_timeout_s:=30.0')
     driver = Node('t_safety_stale')
     traj_pub = driver.create_publisher(Trajectory, '/planning/trajectory', SENSOR_QOS)
     cmd_msgs = []
