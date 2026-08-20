@@ -35,6 +35,8 @@
 
 **Can develop independently using:** `MockLocalization`
 
+**Status:** real world model implemented and unit/contract-tested — `real_world_model` backed by a ROS-free core (`VoxelMapper` rolling hit-count occupancy window, `clusterOccupied`, `ObstacleTracker` with velocity/class estimation). Not yet run against real FAST-LIO2 cloud output; parameter tuning against real data pending. See [docs/WORLD_MODEL.md](WORLD_MODEL.md).
+
 ## Person 3 — Planning
 
 **Feature branch:** `feature/planning`
@@ -50,7 +52,7 @@
 
 **Can develop independently using:** `MockLocalization`, `MockWorldModel`, `MockMission`
 
-**Status:** real global planner (A* over an inflated occupancy grid), boundary checking, and trajectory generation are implemented and unit/contract-tested — no Gazebo/PX4 needed for any of it. A real *local* planner (fast local replanning against moving obstacles, rather than a full global replan every tick) is not yet built. See [docs/PLANNING.md](PLANNING.md).
+**Status:** real global planner (Theta*, any-angle) and real local planner (D* Lite incremental replanning with the confidence-adaptive risk margin — see the "Algorithmic contribution" section of [docs/PLANNING.md](PLANNING.md)), plus boundary checking and trajectory generation, all implemented and unit/contract-tested — no Gazebo/PX4 needed for any of it.
 
 ## Person 4 — Mission / Safety / Integration
 

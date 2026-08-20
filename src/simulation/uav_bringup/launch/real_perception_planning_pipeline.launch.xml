@@ -1,0 +1,21 @@
+<!--
+  Two real modules at once: real_world_model (VoxelMapper/ObstacleTracker
+  over a live point cloud) feeding real_planner (Theta* + D* Lite + CARM).
+  Localization, Mission, Safety, Vehicle stay mocked.
+
+  Prerequisite for real perception data: something must publish the point
+  cloud on /cloud_registered — normally FAST-LIO2 from the real
+  localization pipeline (see docs/LOCALIZATION.md). Without it, the world
+  model still runs and publishes a valid empty map once MockLocalization's
+  pose arrives (planner will fly straight lines), which is also exactly
+  what tests/contract/test_world_model_contracts.py exercises with a
+  synthetic cloud instead.
+-->
+<launch>
+  <node pkg="uav_localization" exec="mock_localization" name="mock_localization" output="screen" />
+  <node pkg="uav_world_model" exec="real_world_model" name="real_world_model" output="screen" />
+  <node pkg="uav_mission" exec="mock_mission" name="mock_mission" output="screen" />
+  <node pkg="uav_planning" exec="real_planner" name="real_planner" output="screen" />
+  <node pkg="uav_safety" exec="mock_safety" name="mock_safety" output="screen" />
+  <node pkg="uav_vehicle" exec="mock_vehicle" name="mock_vehicle" output="screen" />
+</launch>

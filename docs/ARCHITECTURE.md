@@ -58,7 +58,8 @@ Mission Manager loads a mission once (from file, or a one-shot ground-station pu
 
 Real implementations plug into the exact topics/messages their mock used, alongside — not replacing — the mock:
 - Localization: LiDAR/IMU -> FAST-LIO2 -> `lio_state_bridge` -> `LocalizationState`. See [docs/LOCALIZATION.md](LOCALIZATION.md).
-- Planning: `Mission`/`LocalizationState`/`LocalMap`/`ObstacleSet` -> A* + boundary checking + trajectory generation (`real_planner`) -> `Trajectory`/`PlannerStatus`. See [docs/PLANNING.md](PLANNING.md).
+- Planning: `Mission`/`LocalizationState`/`LocalMap`/`ObstacleSet` -> Theta* global + D* Lite local (with confidence-adaptive risk margin) + boundary checking + trajectory generation (`real_planner`) -> `Trajectory`/`PlannerStatus`. See [docs/PLANNING.md](PLANNING.md).
+- World Model: point cloud (`/cloud_registered`) + `LocalizationState` -> rolling voxel occupancy window + obstacle clustering/tracking (`real_world_model`) -> `LocalMap`/`ObstacleSet`. See [docs/WORLD_MODEL.md](WORLD_MODEL.md).
 
 ## Why mocks first
 
