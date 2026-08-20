@@ -39,6 +39,11 @@ constexpr uint8_t kLevelCritical = 2;
 constexpr uint8_t kLevelFailsafe = 3;
 }  // namespace
 
+SafetyMonitor::SafetyMonitor()
+: SafetyMonitor(Params())
+{
+}
+
 SafetyMonitor::SafetyMonitor(Params params)
 : params_(params)
 {

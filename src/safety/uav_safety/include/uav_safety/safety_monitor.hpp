@@ -118,7 +118,14 @@ public:
     double min_obstacle_clearance_m{0.3};  // independent redundant check margin
   };
 
-  explicit SafetyMonitor(Params params = Params{});
+  // Two overloads rather than a `Params params = Params{}` default
+  // argument: some GCC versions reject a nested struct's own default
+  // member initializers as a default-argument value inside the SAME
+  // enclosing class body (rejected even though Params is itself already
+  // complete at that point) — delegating from a no-arg constructor in
+  // the .cpp sidesteps it entirely.
+  SafetyMonitor();
+  explicit SafetyMonitor(Params params);
 
   // dt_s: wall time elapsed since the previous update() call — used to
   // advance the sustained-loss timer. Call once per tick.
