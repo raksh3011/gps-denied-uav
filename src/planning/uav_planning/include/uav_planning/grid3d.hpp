@@ -78,6 +78,18 @@ public:
   GridIndex worldToIndex(const Eigen::Vector3d & world) const;
   Eigen::Vector3d indexToWorld(const GridIndex & idx) const;
 
+  // Samples along the straight segment a->b at resolution()/2 steps. Used
+  // by ThetaStarPlanner to find any-angle shortcuts. `clear` is false if
+  // any sampled point lands in a hard-occupied cell; `cost` is the sum of
+  // sampled soft traversal cost along the segment (0 if `clear` is false —
+  // not meaningful in that case).
+  struct LineTrace
+  {
+    bool clear{false};
+    double cost{0.0};
+  };
+  LineTrace traceLine(const Eigen::Vector3d & a, const Eigen::Vector3d & b) const;
+
   double resolution() const {return resolution_;}
   int sizeX() const {return size_x_;}
   int sizeY() const {return size_y_;}

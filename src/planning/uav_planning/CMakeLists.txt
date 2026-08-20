@@ -26,6 +26,8 @@ target_compile_features(mock_planner PUBLIC cxx_std_20)
 add_library(uav_planning_core
   src/grid3d.cpp
   src/astar_planner.cpp
+  src/theta_star_planner.cpp
+  src/dstar_lite_planner.cpp
   src/boundary_checker.cpp
   src/trajectory_generator.cpp
 )
@@ -61,6 +63,12 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_astar_planner test/test_astar_planner.cpp)
   target_link_libraries(test_astar_planner uav_planning_core)
+
+  ament_add_gtest(test_theta_star_planner test/test_theta_star_planner.cpp)
+  target_link_libraries(test_theta_star_planner uav_planning_core)
+
+  ament_add_gtest(test_dstar_lite_planner test/test_dstar_lite_planner.cpp)
+  target_link_libraries(test_dstar_lite_planner uav_planning_core)
 
   ament_add_gtest(test_boundary_checker test/test_boundary_checker.cpp)
   target_link_libraries(test_boundary_checker uav_planning_core)

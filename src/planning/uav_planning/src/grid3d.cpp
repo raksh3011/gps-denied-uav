@@ -73,6 +73,30 @@ Eigen::Vector3d Grid3D::indexToWorld(const GridIndex & idx) const
     (idx.z + 0.5) * resolution_);
 }
 
+Grid3D::LineTrace Grid3D::traceLine(const Eigen::Vector3d & a, const Eigen::Vector3d & b) const
+{
+  const double length = (b - a).norm();
+  const double step = resolution_ * 0.5;
+  const int num_steps = std::max(1, static_cast<int>(std::ceil(length / step)));
+
+  LineTrace result;
+  result.clear = true;
+  result.cost = 0.0;
+
+  for (int i = 0; i <= num_steps; ++i) {
+    const double t = static_cast<double>(i) / num_steps;
+    const Eigen::Vector3d sample = a + t * (b - a);
+    const GridIndex idx = worldToIndex(sample);
+    if (isOccupied(idx)) {
+      result.clear = false;
+      result.cost = 0.0;
+      return result;
+    }
+    result.cost += traversalCost(idx);
+  }
+  return result;
+}
+
 void Grid3D::loadOccupancy(const std::vector<uint8_t> & occupancy)
 {
   const size_t n = std::min(occupancy.size(), occupied_.size());

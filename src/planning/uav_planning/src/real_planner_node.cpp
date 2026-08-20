@@ -14,15 +14,26 @@
 
 // RealPlanner: the real Planning producer. Same topics/contract as
 // MockPlanner (drop-in swap, see docs/DEVELOPMENT.md's mock-swap
-// workflow) but backed by a real global planner (AStarPlanner over a
-// Grid3D built from LocalMap + inflated ObstacleSet), boundary checking
-// (BoundaryChecker), and trajectory generation (TrajectoryGenerator).
-// Replans from scratch every tick against the latest map/obstacles —
-// see docs/PLANNING.md for why that's the "dynamic replanning" strategy
-// for v1, and what a real local planner would add on top.
+// workflow) but backed by two layered real planners, matching Person 3's
+// global+local ownership split:
+//   - Global: ThetaStarPlanner, run once whenever the goal (or the
+//     planner's own state) changes — any-angle search, so the reference
+//     path is close to the true shortest path, not a blocky grid staircase.
+//   - Local: DStarLitePlanner, run every tick. It holds search state
+//     across ticks and only re-examines what actually changed (vehicle
+//     motion, new/moved obstacles), instead of re-searching from scratch —
+//     this is what actually gets published as the Trajectory, since it's
+//     the one with a bounded, low-latency reaction to a changing
+//     environment.
+// See docs/PLANNING.md for the full design rationale and known limits
+// (notably: DStarLitePlanner assumes a fixed-origin map — a genuinely
+// rolling/re-centering LocalMap forces a full re-initialize, losing the
+// incremental benefit for that tick; see the doc for why).
+#include <algorithm>
 #include <chrono>
 #include <memory>
 #include <optional>
+#include <vector>
 
 #include "rclcpp/rclcpp.hpp"
 #include "uav_interfaces/msg/mission.hpp"
@@ -32,9 +43,10 @@
 #include "uav_interfaces/msg/trajectory.hpp"
 #include "uav_interfaces/msg/planner_status.hpp"
 
-#include "uav_planning/astar_planner.hpp"
 #include "uav_planning/boundary_checker.hpp"
+#include "uav_planning/dstar_lite_planner.hpp"
 #include "uav_planning/grid3d.hpp"
+#include "uav_planning/theta_star_planner.hpp"
 #include "uav_planning/trajectory_generator.hpp"
 
 using uav_interfaces::msg::Mission;
@@ -49,6 +61,7 @@ namespace
 constexpr double kHardMarginM = 0.3;      // hard-occupied buffer beyond an obstacle's own radius
 constexpr double kSoftMarginM = 1.5;      // additional soft-cost buffer beyond the hard margin
 constexpr double kSoftCostWeight = 5.0;   // cost per meter of proximity within the soft margin
+constexpr double kGoalChangeToleranceM = 0.1;   // re-run global + re-init local beyond this
 }  // namespace
 
 class RealPlanner : public rclcpp::Node
@@ -142,12 +155,46 @@ private:
       grid.inflateObstacles(spheres, kHardMarginM, kSoftMarginM, kSoftCostWeight);
     }
 
-    uav_planning::AStarPlanner planner;
-    const std::vector<Eigen::Vector3d> path = planner.plan(grid, start, goal);
+    const bool goal_changed = !dstar_.isInitialized() || !last_goal_.has_value() ||
+      (goal - *last_goal_).norm() > kGoalChangeToleranceM;
+
+    if (goal_changed) {
+      // Global reference plan: any-angle Theta*, run once per goal. Not
+      // itself published — DStarLitePlanner is re-seeded fresh against
+      // the same start/goal and becomes the ongoing source of truth every
+      // tick from here on. Kept for total_path_length_ (progress metric)
+      // and as a sanity signal: if Theta* can't find a path either, the
+      // goal is genuinely unreachable right now, not a D* Lite quirk.
+      uav_planning::ThetaStarPlanner theta;
+      const auto global_path = theta.plan(grid, start, goal);
+      if (global_path.empty()) {
+        status.state = PlannerStatus::STATE_FAILED;
+        status.message = "no global path found to goal";
+        status_pub_->publish(status);
+        return;
+      }
+      total_path_length_ = 0.0;
+      for (size_t i = 1; i < global_path.size(); ++i) {
+        total_path_length_ += (global_path[i] - global_path[i - 1]).norm();
+      }
+      dstar_.initialize(grid, start, goal);
+      last_goal_ = goal;
+    }
+
+    std::vector<Eigen::Vector3d> path = dstar_.update(grid, start);
+    if (path.empty() && dstar_.isInitialized()) {
+      // update() returns empty both for "genuinely unreachable" and for
+      // "map geometry changed under us, please re-initialize" (see
+      // DStarLitePlanner::update) -- isInitialized() distinguishes them:
+      // it goes false in the latter case, so try exactly once more here
+      // rather than reporting failure for a recoverable map re-centering.
+      dstar_.initialize(grid, start, goal);
+      path = dstar_.update(grid, start);
+    }
 
     if (path.empty()) {
       status.state = PlannerStatus::STATE_FAILED;
-      status.message = "no path found to goal";
+      status.message = "no local path found to goal";
       status_pub_->publish(status);
       return;
     }
@@ -161,10 +208,10 @@ private:
     traj_pub_->publish(traj);
 
     const double remaining = (goal - start).norm();
-    const double total = (goal - path.front()).norm();
     status.state = PlannerStatus::STATE_EXECUTING;
     status.message = "";
-    status.progress = total > 1e-6 ? static_cast<float>(1.0 - remaining / total) : 1.0F;
+    status.progress = total_path_length_ > 1e-6 ?
+      static_cast<float>(std::max(0.0, 1.0 - remaining / total_path_length_)) : 1.0F;
     status_pub_->publish(status);
   }
 
@@ -180,6 +227,10 @@ private:
   std::optional<LocalizationState> loc_;
   std::optional<LocalMap> map_;
   std::optional<ObstacleSet> obstacles_;
+
+  uav_planning::DStarLitePlanner dstar_;
+  std::optional<Eigen::Vector3d> last_goal_;
+  double total_path_length_{0.0};
 };
 
 int main(int argc, char ** argv)
