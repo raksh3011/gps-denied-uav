@@ -23,6 +23,7 @@
 //   /mission/current       -> /viz/goal (Marker, green sphere)
 // Publishers are RELIABLE on purpose: RViz display subscriptions default
 // to reliable QoS, which never matches our internal best-effort topics.
+#include <array>
 #include <chrono>
 #include <deque>
 #include <memory>
@@ -69,6 +70,7 @@ public:
     pub_qos.reliable();
 
     pose_pub_ = create_publisher<PoseStamped>("/viz/pose", pub_qos);
+    drone_pub_ = create_publisher<MarkerArray>("/viz/drone", pub_qos);
     track_pub_ = create_publisher<Path>("/viz/track", pub_qos);
     path_pub_ = create_publisher<Path>("/viz/planned_path", pub_qos);
     obstacles_pub_ = create_publisher<MarkerArray>("/viz/obstacles", pub_qos);
@@ -100,6 +102,7 @@ private:
     pose.header.frame_id = "map";
     pose.pose = msg->pose;
     pose_pub_->publish(pose);
+    publishDroneBody(pose);
 
     trail_.push_back(pose);
     if (trail_.size() > kMaxTrailPoses) {trail_.pop_front();}
@@ -110,6 +113,54 @@ private:
     track.header = pose.header;
     track.poses.assign(trail_.begin(), trail_.end());
     track_pub_->publish(track);
+  }
+
+  // A simple quadcopter silhouette: dark body box + 4 rotor disks.
+  void publishDroneBody(const PoseStamped & pose)
+  {
+    MarkerArray drone;
+    Marker body;
+    body.header = pose.header;
+    body.ns = "drone";
+    body.id = 0;
+    body.type = Marker::CUBE;
+    body.action = Marker::ADD;
+    body.pose = pose.pose;
+    body.scale.x = 0.45;
+    body.scale.y = 0.45;
+    body.scale.z = 0.14;
+    body.color.r = 0.15F;
+    body.color.g = 0.15F;
+    body.color.b = 0.18F;
+    body.color.a = 1.0F;
+    drone.markers.push_back(body);
+
+    const double arm = 0.34;
+    const std::array<std::array<double, 2>, 4> offsets = {{
+      {arm, arm}, {arm, -arm}, {-arm, arm}, {-arm, -arm}
+    }};
+    for (size_t i = 0; i < offsets.size(); ++i) {
+      Marker rotor;
+      rotor.header = pose.header;
+      rotor.ns = "drone";
+      rotor.id = static_cast<int>(i) + 1;
+      rotor.type = Marker::CYLINDER;
+      rotor.action = Marker::ADD;
+      rotor.pose = pose.pose;
+      rotor.pose.position.x += offsets[i][0];
+      rotor.pose.position.y += offsets[i][1];
+      rotor.pose.position.z += 0.09;
+      rotor.scale.x = 0.30;
+      rotor.scale.y = 0.30;
+      rotor.scale.z = 0.03;
+      const bool front = offsets[i][0] > 0.0;
+      rotor.color.r = front ? 0.95F : 0.35F;
+      rotor.color.g = front ? 0.45F : 0.35F;
+      rotor.color.b = front ? 0.1F : 0.4F;
+      rotor.color.a = 0.95F;
+      drone.markers.push_back(rotor);
+    }
+    drone_pub_->publish(drone);
   }
 
   void onTrajectory(const Trajectory::SharedPtr msg)
@@ -213,6 +264,7 @@ private:
   }
 
   rclcpp::Publisher<PoseStamped>::SharedPtr pose_pub_;
+  rclcpp::Publisher<MarkerArray>::SharedPtr drone_pub_;
   rclcpp::Publisher<Path>::SharedPtr track_pub_;
   rclcpp::Publisher<Path>::SharedPtr path_pub_;
   rclcpp::Publisher<MarkerArray>::SharedPtr obstacles_pub_;

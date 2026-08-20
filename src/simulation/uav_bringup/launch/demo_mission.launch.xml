@@ -1,0 +1,39 @@
+<!--
+  Full visual mission demo — no Gazebo/PX4, RAM-friendly. Two REAL
+  modules doing real work, with demo stand-ins only at the edges:
+
+    demo_world  -> synthetic LiDAR cloud of a pillar arena (/cloud_registered)
+    real_world_model -> builds the live voxel map + tracked obstacles (REAL)
+    mock_mission     -> goal at (10, 0, 3)
+    real_planner     -> Theta* + D* Lite + CARM (REAL)
+    demo_flyer       -> flies the vehicle along the planner's own trajectory
+    viz_bridge/rviz2 -> what you watch
+
+  The drone starts at (-10, 0, 1.5) and must thread the pillar field to
+  the green goal — every turn you see is the real planner avoiding the
+  real world model's map of the arena.
+
+  World model params: one static window covering the whole arena
+  (30 x 15 x 10 m at 0.25 m/voxel; recenter threshold set beyond arena
+  size so the origin never moves and D* Lite stays incremental
+  throughout).
+-->
+<launch>
+  <node pkg="uav_bringup" exec="demo_world" name="demo_world" output="screen" />
+  <node pkg="uav_bringup" exec="demo_flyer" name="demo_flyer" output="screen" />
+  <node pkg="uav_world_model" exec="real_world_model" name="real_world_model" output="screen">
+    <param name="resolution" value="0.25" />
+    <param name="size_x" value="120" />
+    <param name="size_y" value="60" />
+    <param name="size_z" value="40" />
+    <param name="recenter_threshold_m" value="1000.0" />
+    <param name="min_cluster_voxels" value="4" />
+  </node>
+  <node pkg="uav_mission" exec="mock_mission" name="mock_mission" output="screen" />
+  <node pkg="uav_planning" exec="real_planner" name="real_planner" output="screen" />
+  <node pkg="uav_safety" exec="mock_safety" name="mock_safety" output="screen" />
+  <node pkg="uav_vehicle" exec="mock_vehicle" name="mock_vehicle" output="screen" />
+  <node pkg="uav_bringup" exec="viz_bridge" name="viz_bridge" output="screen" />
+  <node pkg="rviz2" exec="rviz2" name="rviz2"
+        args="-d $(find-pkg-share uav_bringup)/config/viz.rviz" output="screen" />
+</launch>
