@@ -68,7 +68,10 @@ std::vector<uav_interfaces::msg::TrajectoryPoint> TrajectoryGenerator::generate(
     if (i + 1 < path.size()) {
       const Eigen::Vector3d delta = path[i + 1] - path[i];
       const double segment_len = delta.norm();
-      const Eigen::Vector3d direction = segment_len > 1e-6 ? (delta / segment_len) : Eigen::Vector3d::Zero();
+      Eigen::Vector3d direction = Eigen::Vector3d::Zero();
+      if (segment_len > 1e-6) {
+        direction = delta / segment_len;
+      }
 
       pt.velocity.x = direction.x() * speed;
       pt.velocity.y = direction.y() * speed;
