@@ -103,7 +103,7 @@ struct SafetyOutputs
   uint8_t localization_level{0};
   uint8_t world_model_level{0};
   uint8_t planning_level{0};
-  uint8_t vehicle_link_level{0};   // see docs/SAFETY.md — always OK for now, no feedback topic exists yet
+  uint8_t vehicle_link_level{0};   // no feedback topic yet, always OK — see docs/SAFETY.md
   std::vector<std::string> active_faults;
 };
 
