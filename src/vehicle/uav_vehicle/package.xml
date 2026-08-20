@@ -3,7 +3,7 @@
 <package format="3">
   <name>uav_vehicle</name>
   <version>0.1.0</version>
-  <description>PX4 Interface module (Person 4 owns). Provides MockVehicle (C++) for pipeline bring-up; real PX4/uXRCE-DDS bridge comes later.</description>
+  <description>PX4 Interface module (Person 4 owns). MockVehicle for pipeline bring-up, plus the real Px4CommandBridge-backed real_vehicle (see docs/VEHICLE.md) — only built if px4_msgs is vendored (uav_vehicle.repos).</description>
   <maintainer email="team@example.com">Person 4</maintainer>
   <license>Apache-2.0</license>
 
@@ -12,9 +12,21 @@
   <depend>rclcpp</depend>
   <depend>std_msgs</depend>
   <depend>uav_interfaces</depend>
+  <depend>eigen</depend>
+  <!-- px4_msgs is deliberately NOT declared as a <depend> here, same
+       choice as fast_lio/livox_ros_driver2 in uav_localization.repos:
+       it's vendored (uav_vehicle.repos), not rosdep-installable, and
+       declaring it would make `rosdep install` warn/fail on every dev's
+       machine even though only the Vehicle module needs it. CMakeLists.txt's
+       find_package(px4_msgs QUIET) gate is the sole trigger for building
+       real_vehicle_node — build px4_msgs explicitly BEFORE uav_vehicle
+       (see uav_vehicle.repos) since colcon won't know to order them
+       automatically without a package.xml depend. -->
+
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
+  <test_depend>ament_cmake_gtest</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

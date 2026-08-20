@@ -70,7 +70,9 @@
 
 **Can develop independently using:** `MockPlanner`, `MockLocalization`
 
-**Status:** real Safety Supervisor implemented and unit/contract-tested — `real_safety` backed by a ROS-free core (`SafetyMonitor`: staleness/validity gating across all five subscribed contracts, an independent obstacle-clearance check that doesn't trust Planning's own `valid` flag, sustained-localization-loss escalation to an explicit `MODE_LAND`). Deliberately defers to Planning's CARM for DEGRADED localization rather than double-reacting — see [docs/SAFETY.md](SAFETY.md). Mission and the PX4/Vehicle interface are still mocks.
+**Status:** real Safety Supervisor implemented and unit/contract-tested — `real_safety` backed by a ROS-free core (`SafetyMonitor`: staleness/validity gating across all five subscribed contracts, an independent obstacle-clearance check that doesn't trust Planning's own `valid` flag, sustained-localization-loss escalation to an explicit `MODE_LAND`). Deliberately defers to Planning's CARM for DEGRADED localization rather than double-reacting — see [docs/SAFETY.md](SAFETY.md).
+
+Real Vehicle/PX4 Interface's core (`Px4CommandBridge`: ENU->NED conversion, one-shot vs. streamed commands, an arm/offboard warm-up state machine) is implemented and unit-tested (15 gtests, no ROS/PX4 dependency) — but unlike every other "real" module in this repo, the actual PX4 wiring (`real_vehicle_node`) has never been compiled or run, since it needs `px4_msgs` vendored (`uav_vehicle.repos`) and a live PX4 instance neither exists on the machine this was built on. **Read [docs/VEHICLE.md](VEHICLE.md)'s Status section before assuming any of the PX4-facing part works** — three specific, named risk areas (topic names, `VehicleStatus` enum values, px4_msgs branch/PX4 firmware version match) are called out there. Mission is still a mock.
 
 ## Cross-cutting
 

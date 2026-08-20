@@ -25,11 +25,12 @@ pytest tests/ -v                   # unit/contract/integration tests
 
 ## Vendored dependencies
 
-Some modules depend on external packages not available via apt/rosdep (e.g. the FAST-LIO2 backend behind real Localization — see [docs/LOCALIZATION.md](LOCALIZATION.md)). These are vendored with `vcs` via a `.repos` file at the repo root, not committed into `src/` directly:
+Some modules depend on external packages not available via apt/rosdep — the FAST-LIO2 backend behind real Localization (see [docs/LOCALIZATION.md](LOCALIZATION.md)), and `px4_msgs` behind real Vehicle (see [docs/VEHICLE.md](VEHICLE.md), **not yet verified — read that doc's Status section before assuming it's confirmed working**). These are vendored with `vcs` via a `.repos` file at the repo root, not committed into `src/` directly:
 
 ```bash
 sudo apt install python3-vcstool   # if you don't have it: `vcs` isn't part of the base ROS 2 install
 vcs import src < uav_localization.repos
+vcs import src < uav_vehicle.repos   # only if working on real Vehicle/PX4
 rosdep install --from-paths src --ignore-src -r -y
 colcon build --symlink-install
 ```

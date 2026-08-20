@@ -1,0 +1,32 @@
+# Vendored external dependency for the real PX4/Vehicle Interface module
+# (uav_vehicle's real_vehicle_node) — not installed via apt/rosdep.
+#
+# NOT YET VERIFIED on real hardware — unlike uav_localization.repos, this
+# has not been through a confirmed-working build+run cycle yet. See
+# docs/VEHICLE.md for exactly what is and isn't proven.
+#
+#   vcs import src < uav_vehicle.repos
+#   colcon build --packages-select px4_msgs
+#   colcon build --packages-select uav_vehicle   # picks up real_vehicle
+#     automatically once px4_msgs is present — see uav_vehicle's
+#     CMakeLists.txt find_package(px4_msgs QUIET) gate.
+#
+# Branch: "release/1.15" is chosen to match setup/versions.txt's
+# PX4_FIRMWARE_TAG=v1.15.0 — px4_msgs' release/X.Y branches track the
+# uORB message definitions for that PX4 firmware minor version. If the
+# PX4-Autopilot checkout in ~/PX4-Autopilot has drifted from v1.15.0
+# (check with `git -C ~/PX4-Autopilot describe --tags`), this branch must
+# be updated to match, or uORB message field mismatches will cause
+# silent data corruption over the µXRCE-DDS bridge (wrong field
+# offsets), not just a build failure — this is a real, known risk class
+# for px4_msgs version skew, not a hypothetical one.
+#
+# px4_msgs is BSD-3-Clause licensed (PX4 Development Team) — no license
+# boundary concerns like FAST-LIO2's GPLv2 (see uav_localization.repos);
+# it's fine to link against/#include directly, which real_vehicle_node
+# does.
+repositories:
+  px4_msgs:
+    type: git
+    url: https://github.com/PX4/px4_msgs.git
+    version: release/1.15
