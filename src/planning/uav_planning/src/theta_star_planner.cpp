@@ -37,6 +37,7 @@ int64_t flatKey(const GridIndex & idx, int size_x, int size_y)
 struct OpenEntry
 {
   double f;
+  double g;   // g at push time, to detect+skip stale entries on pop
   GridIndex idx;
 };
 
@@ -84,18 +85,28 @@ std::vector<Eigen::Vector3d> ThetaStarPlanner::plan(
   const int64_t start_key = flatKey(start_idx, sx, sy);
   g_score[start_key] = 0.0;
   parent[start_key] = start_idx;   // parent of start is itself
-  open.push({heuristic(start_idx, goal_idx, res), start_idx});
+  open.push({heuristic(start_idx, goal_idx, res), 0.0, start_idx});
 
   const int64_t goal_key = flatKey(goal_idx, sx, sy);
   size_t expansions = 0;
   bool found = false;
 
   while (!open.empty() && expansions < max_expansions_) {
-    const GridIndex current = open.top().idx;
+    const OpenEntry top = open.top();
     open.pop();
+    const GridIndex current = top.idx;
+    const int64_t current_key = flatKey(current, sx, sy);
+
+    // Lazy deletion (same pattern as DStarLitePlanner's queue_): a cell
+    // can be re-pushed with a better g after this entry was queued, which
+    // leaves the OLD entry sitting in the heap. Without this check, that
+    // stale entry gets popped later and fully re-expanded — on a large
+    // open grid this floods max_expansions with redundant work (each one
+    // re-running 6 neighbor traceLine() raycasts) instead of reaching the
+    // goal, even though a short path exists.
+    if (top.g > g_score.at(current_key) + 1e-9) {continue;}
     ++expansions;
 
-    const int64_t current_key = flatKey(current, sx, sy);
     if (current_key == goal_key) {
       found = true;
       break;
@@ -131,7 +142,7 @@ std::vector<Eigen::Vector3d> ThetaStarPlanner::plan(
       if (it == g_score.end() || tentative_g < it->second) {
         g_score[next_key] = tentative_g;
         parent[next_key] = candidate_parent;
-        open.push({tentative_g + heuristic(next, goal_idx, res), next});
+        open.push({tentative_g + heuristic(next, goal_idx, res), tentative_g, next});
       }
     }
   }

@@ -101,6 +101,41 @@ TEST(ThetaStarPlanner, RoutesAroundAHardObstacle) {
   }
 }
 
+TEST(ThetaStarPlanner, FindsPathOnLargeOpenGridWithSparseObstacles) {
+  // Regression test for a real bug: the open-list had no stale-entry
+  // check, so on a large grid with wide-open free space, cells got
+  // revised (re-pushed) many times and the queue filled with stale
+  // duplicates — popping one re-ran a full neighbor expansion (each with
+  // an O(distance) traceLine raycast) for no benefit, burning through
+  // max_expansions before ever reaching a goal that was trivially
+  // reachable. This grid/obstacle layout is scaled down from the one
+  // that surfaced it (a 30x15x10m arena with 8 pillars) but keeps the
+  // same character: a big mostly-open grid, sparse well-separated
+  // obstacles, start and goal several times the obstacle spacing apart.
+  Grid3D grid(0.25, Eigen::Vector3d(-15.0, -7.5, -5.0), 120, 60, 40);
+  std::vector<ObstacleSphere> obstacles = {
+    {Eigen::Vector3d(-6.0, 1.5, 1.25), 0.5},
+    {Eigen::Vector3d(-6.0, -3.5, 1.25), 0.5},
+    {Eigen::Vector3d(-2.0, -1.0, 1.25), 0.6},
+    {Eigen::Vector3d(-2.0, 4.0, 1.25), 0.4},
+    {Eigen::Vector3d(2.0, 1.0, 1.25), 0.5},
+    {Eigen::Vector3d(2.0, -4.0, 1.25), 0.4},
+    {Eigen::Vector3d(6.0, -1.5, 1.25), 0.5},
+    {Eigen::Vector3d(6.0, 3.0, 1.25), 0.5},
+  };
+  grid.inflateObstacles(obstacles, 0.3, 1.5, 5.0);
+
+  ThetaStarPlanner theta;
+  const auto theta_path = theta.plan(
+    grid, Eigen::Vector3d(-10.0, 0.0, 1.5), Eigen::Vector3d(10.0, 0.0, 3.0));
+  EXPECT_FALSE(theta_path.empty()) << "a clearly-open path exists but Theta* reported none";
+
+  AStarPlanner astar;
+  const auto astar_path = astar.plan(
+    grid, Eigen::Vector3d(-10.0, 0.0, 1.5), Eigen::Vector3d(10.0, 0.0, 3.0));
+  EXPECT_FALSE(astar_path.empty()) << "a clearly-open path exists but A* reported none";
+}
+
 TEST(ThetaStarPlanner, ReturnsEmptyWhenGoalIsUnreachable) {
   Grid3D grid(0.5, Eigen::Vector3d(-5.0, -5.0, 0.0), 20, 20, 4);
   ThetaStarPlanner planner;
