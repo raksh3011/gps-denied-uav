@@ -112,36 +112,49 @@ std::vector<Eigen::Vector3d> ThetaStarPlanner::plan(
       break;
     }
 
-    const GridIndex grandparent = parent.at(current_key);
-    const Eigen::Vector3d grandparent_world = grid.indexToWorld(grandparent);
-    const double g_grandparent = g_score.at(flatKey(grandparent, sx, sy));
+    // Lazy Theta* (Nash, Koenig, Tovey, 2010): unlike eager Theta*, the
+    // line-of-sight shortcut is checked ONCE per node actually expanded
+    // (here), against that node's own grandparent — not once per
+    // candidate neighbor of every node ever pushed. Most pushed
+    // candidates are superseded and never expanded, so eager per-neighbor
+    // checking wastes the large majority of its raycasts on paths the
+    // search never uses; this is what made the eager version blow past
+    // its time budget on a large open grid (see docs/PLANNING.md).
+    const GridIndex parent_of_current = parent.at(current_key);
+    const int64_t parent_key = flatKey(parent_of_current, sx, sy);
+    if (parent_key != current_key) {
+      const GridIndex grandparent = parent.at(parent_key);
+      const int64_t grandparent_key = flatKey(grandparent, sx, sy);
+      if (grandparent_key != parent_key) {
+        const Eigen::Vector3d grandparent_world = grid.indexToWorld(grandparent);
+        const Eigen::Vector3d current_world = grid.indexToWorld(current);
+        const Grid3D::LineTrace trace = grid.traceLine(grandparent_world, current_world);
+        if (trace.clear) {
+          const double candidate_g = g_score.at(grandparent_key) +
+            (current_world - grandparent_world).norm() + trace.cost;
+          if (candidate_g < g_score.at(current_key) - 1e-9) {
+            g_score[current_key] = candidate_g;
+            parent[current_key] = grandparent;
+          }
+        }
+      }
+    }
 
     for (const auto & step : neighbors) {
       const GridIndex next{current.x + step.x, current.y + step.y, current.z + step.z};
       if (!grid.inBounds(next) || grid.isOccupied(next)) {continue;}
 
       const int64_t next_key = flatKey(next, sx, sy);
-      const Eigen::Vector3d next_world = grid.indexToWorld(next);
-
-      // Path 2 (Theta*'s shortcut): if grandparent can see `next` directly,
-      // route through grandparent instead of `current` — this is the
-      // any-angle step that distinguishes Theta* from plain A*.
-      const Grid3D::LineTrace trace = grid.traceLine(grandparent_world, next_world);
-      double tentative_g;
-      GridIndex candidate_parent;
-      if (trace.clear) {
-        tentative_g = g_grandparent + (next_world - grandparent_world).norm() + trace.cost;
-        candidate_parent = grandparent;
-      } else {
-        // Path 1: fall back to a regular grid-adjacent A* step.
-        tentative_g = g_score.at(current_key) + res + grid.traversalCost(next);
-        candidate_parent = current;
-      }
+      // Plain grid-adjacent relaxation — no line-of-sight check here.
+      // `current`'s own g already reflects any grandparent shortcut from
+      // above, so the any-angle benefit still propagates to `next`; it's
+      // just resolved lazily instead of eagerly.
+      const double tentative_g = g_score.at(current_key) + res + grid.traversalCost(next);
 
       const auto it = g_score.find(next_key);
       if (it == g_score.end() || tentative_g < it->second) {
         g_score[next_key] = tentative_g;
-        parent[next_key] = candidate_parent;
+        parent[next_key] = current;
         open.push({tentative_g + heuristic(next, goal_idx, res), tentative_g, next});
       }
     }

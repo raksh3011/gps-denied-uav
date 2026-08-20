@@ -12,14 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// ThetaStarPlanner: any-angle global planner (Nash et al., "Theta*: Any-
-// Angle Path Planning on Grids", 2007). Same grid-search skeleton as
+// ThetaStarPlanner: any-angle global planner, implemented as Lazy Theta*
+// (Nash, Koenig, Tovey, "Lazy Theta*: Any-Angle Path Planning and Path
+// Length Analysis in 3D", 2010 — the lazy-evaluation refinement of the
+// original Theta*, Nash et al. 2007). Same grid-search skeleton as
 // AStarPlanner, but a node's parent isn't restricted to a grid-adjacent
-// cell — when there's clear line-of-sight from grandparent to a
-// neighbor, it shortcuts through directly. On an open grid this produces
-// paths close to the true Euclidean-shortest path instead of the blocky,
-// axis-aligned routes 6-connected A* is limited to, without needing a
-// separate post-processing smoothing pass.
+// cell: when a node is actually expanded, if its grandparent has clear
+// line-of-sight to it, it re-parents through the grandparent directly.
+// "Lazy" means that line-of-sight check happens once per node expanded,
+// not once per candidate neighbor of every node ever pushed (the eager
+// original) — most pushed candidates are superseded and never expanded,
+// so eager per-neighbor checking burns the large majority of its
+// raycasts on paths the search never uses. On a large open grid this
+// difference is not cosmetic: see docs/PLANNING.md's note on why the
+// eager version blew past its expansion budget without finding a path
+// that plainly existed. On an open grid this produces paths close to the
+// true Euclidean-shortest path instead of the blocky, axis-aligned
+// routes 6-connected A* is limited to, without needing a separate
+// post-processing smoothing pass.
 #ifndef UAV_PLANNING__THETA_STAR_PLANNER_HPP_
 #define UAV_PLANNING__THETA_STAR_PLANNER_HPP_
 
