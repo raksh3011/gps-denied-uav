@@ -1,0 +1,22 @@
+<!--
+  Same pipeline as mock_pipeline.launch.xml, except Planning is real:
+  a global A* planner over LocalMap + inflated ObstacleSet, boundary
+  checking, and trajectory generation (uav_planning's real_planner),
+  instead of MockPlanner. Everything else — Localization, World Model,
+  Mission, Safety, Vehicle — is still mocked. See docs/PLANNING.md and
+  the "swap one module for real, keep the rest mocked" workflow in
+  docs/DEVELOPMENT.md.
+
+  No simulation prerequisites: unlike real Localization, real_planner
+  only depends on ROS topics (Mission, LocalizationState, LocalMap,
+  ObstacleSet) that MockWorldModel/MockLocalization/MockMission already
+  provide — no Gazebo/PX4 needed to exercise this end-to-end.
+-->
+<launch>
+  <node pkg="uav_localization" exec="mock_localization" name="mock_localization" output="screen" />
+  <node pkg="uav_world_model" exec="mock_world_model" name="mock_world_model" output="screen" />
+  <node pkg="uav_mission" exec="mock_mission" name="mock_mission" output="screen" />
+  <node pkg="uav_planning" exec="real_planner" name="real_planner" output="screen" />
+  <node pkg="uav_safety" exec="mock_safety" name="mock_safety" output="screen" />
+  <node pkg="uav_vehicle" exec="mock_vehicle" name="mock_vehicle" output="screen" />
+</launch>

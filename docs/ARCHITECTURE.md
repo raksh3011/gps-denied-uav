@@ -56,7 +56,9 @@ Mission Manager loads a mission once (from file, or a one-shot ground-station pu
 
 ## Real modules, as they land
 
-Real implementations plug into the exact topics/messages their mock used — see [docs/LOCALIZATION.md](LOCALIZATION.md) for the first one (Localization: LiDAR/IMU -> FAST-LIO2 -> `lio_state_bridge` -> `LocalizationState`, alongside, not replacing, `MockLocalization`).
+Real implementations plug into the exact topics/messages their mock used, alongside — not replacing — the mock:
+- Localization: LiDAR/IMU -> FAST-LIO2 -> `lio_state_bridge` -> `LocalizationState`. See [docs/LOCALIZATION.md](LOCALIZATION.md).
+- Planning: `Mission`/`LocalizationState`/`LocalMap`/`ObstacleSet` -> A* + boundary checking + trajectory generation (`real_planner`) -> `Trajectory`/`PlannerStatus`. See [docs/PLANNING.md](PLANNING.md).
 
 ## Why mocks first
 

@@ -50,6 +50,8 @@
 
 **Can develop independently using:** `MockLocalization`, `MockWorldModel`, `MockMission`
 
+**Status:** real global planner (A* over an inflated occupancy grid), boundary checking, and trajectory generation are implemented and unit/contract-tested — no Gazebo/PX4 needed for any of it. A real *local* planner (fast local replanning against moving obstacles, rather than a full global replan every tick) is not yet built. See [docs/PLANNING.md](PLANNING.md).
+
 ## Person 4 — Mission / Safety / Integration
 
 **Feature branch:** `feature/mission-safety`
