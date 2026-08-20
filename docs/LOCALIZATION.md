@@ -182,6 +182,8 @@ Work through these in order — each one isolates a different layer, so if somet
 
 Once (5) and (6) pass, this module has cleared the same bar `MockLocalization` already cleared — see [docs/TESTING.md](TESTING.md) for what "contract-tested" means and task 3 below for making that automatic rather than manual.
 
+7. **See the whole real stack fly, in RViz, against the real Gazebo world**: `ros2 launch uav_bringup full_real_pipeline.launch.xml` instead of `real_localization_pipeline.launch.xml` — same Gazebo/PX4/bridge prerequisites, but this one also runs the real World Model (`real_world_model`, clustering FAST-LIO2's own `/cloud_registered` into a live occupancy map and obstacles — see [docs/WORLD_MODEL.md](WORLD_MODEL.md)) and real Planning (`real_planner`, Theta* + D* Lite + CARM — see [docs/PLANNING.md](PLANNING.md)) instead of their mocks, plus `viz_bridge`/`rviz2` for a live view: the vehicle's real pose, its real flown trail, the real occupied-voxel map building up as it flies, and the real planned path. This is the RViz counterpart to `demo_mission.launch.xml`, which exists only because the primary dev machine can't run Gazebo — on capable hardware, this is the one to use.
+
 ## Next tasks, roughly in order
 
 1. **Confirm FAST-LIO2 produces `/Odometry`**, on hardware with enough headroom to keep `/lidar/points`/`/imu/data` flowing continuously (headless Gazebo + no `rviz2`, see [Running this on constrained hardware](#running-this-on-constrained-hardware)). Steps 1-3 (world loads standalone, PX4 attaches, ROS 2 bridge relays real data) are all confirmed — this is the only unverified link left in the sensor->odometry chain, and it's unverified because of resource limits on the machine it was attempted on, not because of a known bug.

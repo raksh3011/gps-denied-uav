@@ -1,0 +1,46 @@
+<!--
+  The real stack end to end, against the actual Gazebo/PX4 world — for a
+  machine that can run them (see docs/LOCALIZATION.md's RAM note; this is
+  NOT the RAM-constrained dev machine's demo_mission.launch.xml, which
+  substitutes synthetic data specifically because Gazebo can't run there).
+
+  Real: Localization (LiDAR/IMU -> FAST-LIO2 -> lio_state_bridge),
+  World Model (real_world_model, clustering FAST-LIO2's own
+  /cloud_registered — the actual live map, not a synthetic one), Planning
+  (Theta* + D* Lite + CARM). Still mocked: Mission, Safety, Vehicle/PX4
+  command interface (see docs/TEAM_OWNERSHIP.md for what's left).
+
+  RViz shows the SAME /viz/* topics as demo_mission.launch.xml
+  (viz_bridge is demo-visualization-only, not part of any real module) —
+  but every number behind them this time comes from the real sensors and
+  the real vehicle in Gazebo, not from demo_world/demo_flyer.
+
+  Prerequisites this launch file does NOT start for you (see
+  docs/LOCALIZATION.md for the full, confirmed-working sequence):
+    1. Gazebo running standalone with our world file
+       (`gz sim -r simulation/worlds/x500_lidar.sdf`, GZ_SIM_RESOURCE_PATH
+       including ~/.simulation-gazebo/models) in its own terminal, THEN PX4
+       SITL with PX4_GZ_STANDALONE=1 and PX4_GZ_MODEL_NAME=x500_lidar_0
+       (attaches to the statically-placed vehicle instead of spawning its
+       own) in a second terminal — both steps required, in that order.
+    2. simulation/launch/sensors_bridge.launch.xml running, to bridge the
+       simulated sensors into /lidar/points and /imu/data.
+    3. The vendored FAST-LIO2 backend built (uav_localization.repos).
+
+  Mission goal: mock_mission's fixed target is (10, 0, 3) in the map
+  frame — check that against where x500_lidar.sdf spawns the vehicle so
+  the goal is actually reachable within the world's extent; adjust
+  mock_mission.cpp if not.
+-->
+<launch>
+  <include file="$(find-pkg-share uav_localization)/launch/real_localization.launch.xml" />
+
+  <node pkg="uav_world_model" exec="real_world_model" name="real_world_model" output="screen" />
+  <node pkg="uav_mission" exec="mock_mission" name="mock_mission" output="screen" />
+  <node pkg="uav_planning" exec="real_planner" name="real_planner" output="screen" />
+  <node pkg="uav_safety" exec="mock_safety" name="mock_safety" output="screen" />
+  <node pkg="uav_vehicle" exec="mock_vehicle" name="mock_vehicle" output="screen" />
+  <node pkg="uav_bringup" exec="viz_bridge" name="viz_bridge" output="screen" />
+  <node pkg="rviz2" exec="rviz2" name="rviz2"
+        args="-d $(find-pkg-share uav_bringup)/config/viz.rviz" output="screen" />
+</launch>

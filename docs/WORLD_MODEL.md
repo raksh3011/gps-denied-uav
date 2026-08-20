@@ -77,4 +77,10 @@ End-to-end with real Planning (still no Gazebo — MockLocalization provides the
 ros2 launch uav_bringup real_perception_planning_pipeline.launch.xml
 ```
 
-With real FAST-LIO2 cloud data (pending Localization verification): run the real localization pipeline from docs/LOCALIZATION.md, then `ros2 topic echo /world_model/obstacles` while something moves in the Gazebo world.
+With real FAST-LIO2 cloud data and a live RViz view, on hardware that can run Gazebo (pending Localization's `/Odometry` verification — see [docs/LOCALIZATION.md](LOCALIZATION.md)):
+
+```bash
+ros2 launch uav_bringup full_real_pipeline.launch.xml
+```
+
+That's the real-Gazebo counterpart to `demo_mission.launch.xml` (which exists only because the primary dev machine can't run Gazebo — see its own header comment). Same RViz config, same `/viz/*` topics, but every number behind them comes from the real vehicle and real sensors instead of `demo_world`/`demo_flyer`.
