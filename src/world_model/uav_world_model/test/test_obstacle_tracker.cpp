@@ -51,6 +51,23 @@ void stampBlob(VoxelMapper & mapper, const Eigen::Vector3d & center, double half
   }
   mapper.integratePoints(points);
 }
+
+// A thin vertical column, radius << height — the shape that exposes the
+// bounding-sphere-over-height distortion clusterOccupied's slicing fixes.
+void stampColumn(
+  VoxelMapper & mapper, const Eigen::Vector3d & base, double radius, double height)
+{
+  std::vector<Eigen::Vector3d> points;
+  for (double dz = 0.0; dz <= height; dz += 0.25) {
+    for (double dx = -radius; dx <= radius; dx += 0.2) {
+      for (double dy = -radius; dy <= radius; dy += 0.2) {
+        if (dx * dx + dy * dy > radius * radius) {continue;}
+        points.push_back(base + Eigen::Vector3d(dx, dy, dz));
+      }
+    }
+  }
+  mapper.integratePoints(points);
+}
 }  // namespace
 
 TEST(ClusterOccupied, TwoSeparatedBlobsGiveTwoClusters) {
@@ -77,6 +94,28 @@ TEST(ClusterOccupied, MinVoxelsFiltersNoise) {
   mapper.integratePoints({{1.0, 1.0, 1.0}});
   EXPECT_TRUE(clusterOccupied(mapper, 2).empty());
   EXPECT_EQ(clusterOccupied(mapper, 1).size(), 1u);
+}
+
+TEST(ClusterOccupied, TallPillarWithoutSlicingGivesOneOverWideSphere) {
+  // A tall thin pillar (radius 0.3, height 3.0) with slicing disabled
+  // (max_height_m=0) must reproduce the old single-sphere behavior, and
+  // that sphere's radius must exceed the pillar's true width — this is
+  // the distortion the slicing fix (next test) exists to correct.
+  VoxelMapper mapper(smallParams());
+  stampColumn(mapper, Eigen::Vector3d(0.0, 0.0, -1.5), 0.3, 3.0);
+  const auto unsliced = clusterOccupied(mapper, 2, 0.0);
+  ASSERT_EQ(unsliced.size(), 1u);
+  EXPECT_GT(unsliced.front().radius, 0.8) << "should be dragged wide by the pillar's height";
+}
+
+TEST(ClusterOccupied, SlicingBoundsTallPillarToSeveralNarrowSpheres) {
+  VoxelMapper mapper(smallParams());
+  stampColumn(mapper, Eigen::Vector3d(0.0, 0.0, -1.5), 0.3, 3.0);
+  const auto sliced = clusterOccupied(mapper, 2, 0.6);   // 0.6m slices
+  ASSERT_GT(sliced.size(), 1u) << "a 3m-tall pillar sliced at 0.6m must yield >1 cluster";
+  for (const auto & cluster : sliced) {
+    EXPECT_LT(cluster.radius, 0.8) << "sliced cluster radius should track the pillar's width";
+  }
 }
 
 TEST(ObstacleTracker, StableIdAcrossFramesAndStaticClass) {

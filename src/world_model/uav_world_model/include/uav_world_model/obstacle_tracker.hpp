@@ -15,8 +15,16 @@
 // Obstacle extraction + tracking behind ObstacleSet. ROS-free, like
 // VoxelMapper. Two stages:
 // - clusterOccupied(): 26-connected component labeling over the mapper's
-//   occupied voxels; each component becomes a bounding sphere (centroid +
-//   max voxel-center distance + half a voxel). Components smaller than
+//   occupied voxels. A component is then sliced into vertical layers no
+//   taller than max_height_m before each layer becomes its own bounding
+//   sphere (centroid + max voxel-center distance + half a voxel).
+//   Without this slicing, a tall thin obstacle (a pole, a tree trunk, a
+//   building corner) gets ONE sphere whose radius is dragged out to cover
+//   its full height — e.g. a 0.5m-radius, 2.5m-tall pillar becomes a
+//   ~1.5m-radius sphere, more than 2x its true width. After planner
+//   margins are added, that false width can close off gaps that are
+//   actually flyable. Slicing bounds each sphere's radius to roughly the
+//   obstacle's true horizontal footprint. Components/slices smaller than
 //   min_voxels are dropped as sensor noise.
 // - ObstacleTracker::track(): frame-to-frame association by nearest
 //   centroid within a gate, giving stable ids, a smoothed velocity
@@ -44,8 +52,13 @@ struct VoxelCluster
   int voxel_count{0};
 };
 
-// min_voxels: clusters with fewer occupied voxels are discarded as noise.
-std::vector<VoxelCluster> clusterOccupied(const VoxelMapper & map, int min_voxels);
+// min_voxels: clusters (post-slicing) with fewer occupied voxels are
+// discarded as noise. max_height_m: connected components are sliced into
+// vertical layers no taller than this before spherizing (see header
+// comment above); pass 0 to disable slicing (one sphere per component,
+// the old behavior).
+std::vector<VoxelCluster> clusterOccupied(
+  const VoxelMapper & map, int min_voxels, double max_height_m = 0.0);
 
 struct TrackedObstacle
 {

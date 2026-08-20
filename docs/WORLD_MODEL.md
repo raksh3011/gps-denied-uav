@@ -12,6 +12,8 @@ Owner: Person 2. Real `LocalMap`/`ObstacleSet` production from a live LiDAR poin
 
 Not yet done:
 - Never run against a real FAST-LIO2 registered cloud (density, noise, and rate all differ from the synthetic blobs in tests). Parameter defaults (`min_hits`, `decay_every_n_ticks`, `point_stride`, `min_cluster_voxels`) will need tuning against real data.
+
+**Fixed:** tall/thin obstacles (a pole, a tree trunk, a pillar) used to become one bounding sphere sized by the object's full height, not its width — a 0.5m-radius, 2.5m-tall pillar produced a ~1.5m-radius sphere. After planner margins, that false width could close gaps that were actually flyable (this is exactly what made the visual demo's pillar field briefly unplannable — see the demo section below). `clusterOccupied` now slices each connected component into vertical layers no taller than `max_cluster_height_m` (default 1.2m) before spherizing each layer, so a tall obstacle becomes several stacked, width-accurate spheres instead of one over-wide one.
 - No ray-based free-space carving: a voxel is freed only by hit-count decay, not by observing rays passing through it. Cheap and simple, but a fast-moving obstacle leaves evidence for up to `min_hits/decay` decay cycles (~4s at defaults) after vacating.
 - Tracker is greedy nearest-neighbor with exponential velocity smoothing — no Kalman filter, no global assignment. Two obstacles crossing paths within the association gate (1m) can swap identities.
 
@@ -50,6 +52,7 @@ Decisions that matter downstream:
 | `recenter_threshold_m` | 2.0 | window re-center trigger |
 | `point_stride` | 2 | integrate every Nth cloud point |
 | `min_cluster_voxels` | 3 | clusters smaller than this are noise |
+| `max_cluster_height_m` | 1.2 | vertical slice height before spherizing (0 disables slicing) |
 | `track_gate_m` | 1.0 | max association distance frame-to-frame |
 | `dynamic_speed_mps` | 0.3 | smoothed speed above which CLASS_DYNAMIC |
 | `max_missed_frames` | 3 | unmatched track lifetime |

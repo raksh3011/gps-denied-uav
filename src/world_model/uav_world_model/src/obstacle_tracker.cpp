@@ -15,13 +15,53 @@
 #include "uav_world_model/obstacle_tracker.hpp"
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
+#include <map>
+#include <optional>
 #include <queue>
 #include <vector>
 
 namespace uav_world_model
 {
 
-std::vector<VoxelCluster> clusterOccupied(const VoxelMapper & map, int min_voxels)
+namespace
+{
+struct Voxel
+{
+  int x;
+  int y;
+  int z;
+};
+
+// Builds one VoxelCluster from a set of voxels already known to belong
+// together (either a whole connected component, or one vertical slice of
+// one). Returns std::nullopt if fewer than min_voxels members.
+std::optional<VoxelCluster> spherize(
+  const VoxelMapper & map, const std::vector<Voxel> & members, int min_voxels)
+{
+  if (static_cast<int>(members.size()) < min_voxels) {return std::nullopt;}
+
+  VoxelCluster cluster;
+  cluster.voxel_count = static_cast<int>(members.size());
+  Eigen::Vector3d sum = Eigen::Vector3d::Zero();
+  for (const auto & m : members) {
+    sum += map.voxelCenter(m.x, m.y, m.z);
+  }
+  cluster.centroid = sum / static_cast<double>(members.size());
+  double max_dist = 0.0;
+  for (const auto & m : members) {
+    max_dist = std::max(max_dist, (map.voxelCenter(m.x, m.y, m.z) - cluster.centroid).norm());
+  }
+  // Half a voxel on top so the sphere covers the outermost voxel's own
+  // extent, not just its center.
+  cluster.radius = max_dist + 0.5 * map.resolution();
+  return cluster;
+}
+}  // namespace
+
+std::vector<VoxelCluster> clusterOccupied(
+  const VoxelMapper & map, int min_voxels, double max_height_m)
 {
   const int sx = map.sizeX();
   const int sy = map.sizeY();
@@ -31,14 +71,12 @@ std::vector<VoxelCluster> clusterOccupied(const VoxelMapper & map, int min_voxel
       return static_cast<size_t>(x) + static_cast<size_t>(y) * sx +
              static_cast<size_t>(z) * sx * sy;
     };
+  // 0 or negative disables slicing: treat the whole component as one bin.
+  const int slice_voxels = max_height_m > 0.0 ?
+    std::max(1, static_cast<int>(std::round(max_height_m / map.resolution()))) :
+    std::numeric_limits<int>::max();
 
   std::vector<VoxelCluster> clusters;
-  struct Voxel
-  {
-    int x;
-    int y;
-    int z;
-  };
 
   for (int z0 = 0; z0 < sz; ++z0) {
     for (int y0 = 0; y0 < sy; ++y0) {
@@ -70,24 +108,22 @@ std::vector<VoxelCluster> clusterOccupied(const VoxelMapper & map, int min_voxel
           }
         }
 
-        if (static_cast<int>(members.size()) < min_voxels) {continue;}
+        if (members.empty()) {continue;}
 
-        VoxelCluster cluster;
-        cluster.voxel_count = static_cast<int>(members.size());
-        Eigen::Vector3d sum = Eigen::Vector3d::Zero();
+        // Slice into vertical layers by z-bin, so a tall component
+        // becomes several stacked spheres instead of one over-wide one
+        // (see the "why" in the header comment above clusterOccupied).
+        const int base_z = members.front().z;
+        std::map<int, std::vector<Voxel>> bins;
         for (const auto & m : members) {
-          sum += map.voxelCenter(m.x, m.y, m.z);
+          bins[(m.z - base_z) / slice_voxels].push_back(m);
         }
-        cluster.centroid = sum / static_cast<double>(members.size());
-        double max_dist = 0.0;
-        for (const auto & m : members) {
-          max_dist = std::max(
-            max_dist, (map.voxelCenter(m.x, m.y, m.z) - cluster.centroid).norm());
+        for (const auto & [bin_index, bin_members] : bins) {
+          (void)bin_index;
+          if (auto cluster = spherize(map, bin_members, min_voxels)) {
+            clusters.push_back(*cluster);
+          }
         }
-        // Half a voxel on top so the sphere covers the outermost voxel's
-        // own extent, not just its center.
-        cluster.radius = max_dist + 0.5 * map.resolution();
-        clusters.push_back(cluster);
       }
     }
   }

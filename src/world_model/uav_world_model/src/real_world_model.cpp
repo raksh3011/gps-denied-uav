@@ -73,6 +73,10 @@ public:
     point_stride_ = static_cast<int>(declare_parameter<int>("point_stride", 2));
     decay_every_n_ticks_ = static_cast<int>(declare_parameter<int>("decay_every_n_ticks", 10));
     min_cluster_voxels_ = static_cast<int>(declare_parameter<int>("min_cluster_voxels", 3));
+    // 0 = disabled (one sphere per connected component, no slicing). See
+    // clusterOccupied's header comment for why this matters for tall/thin
+    // obstacles (poles, trees, pillars).
+    max_cluster_height_m_ = declare_parameter<double>("max_cluster_height_m", 1.2);
 
     rclcpp::QoS sensor_qos(rclcpp::KeepLast(5));
     sensor_qos.best_effort();
@@ -150,7 +154,8 @@ private:
     map.map_valid = loc_.has_value() && loc_->localization_ok;
     map_pub_->publish(map);
 
-    const auto clusters = uav_world_model::clusterOccupied(*mapper_, min_cluster_voxels_);
+    const auto clusters = uav_world_model::clusterOccupied(
+      *mapper_, min_cluster_voxels_, max_cluster_height_m_);
     const auto tracks = tracker_.track(clusters, tick_period_s_);
 
     ObstacleSet obstacle_set;
@@ -187,6 +192,7 @@ private:
   int point_stride_{2};
   int decay_every_n_ticks_{10};
   int min_cluster_voxels_{3};
+  double max_cluster_height_m_{1.2};
   int ticks_since_decay_{0};
   double tick_period_s_{0.2};
 };

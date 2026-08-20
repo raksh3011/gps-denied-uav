@@ -16,7 +16,9 @@
   World model params: one static window covering the whole arena
   (30 x 15 x 10 m at 0.25 m/voxel; recenter threshold set beyond arena
   size so the origin never moves and D* Lite stays incremental
-  throughout).
+  throughout). max_cluster_height_m uses the package default (1.2m) —
+  it's what keeps the arena's 2.5m pillars from becoming over-wide
+  bounding spheres that wall off every corridor (see docs/WORLD_MODEL.md).
 -->
 <launch>
   <node pkg="uav_bringup" exec="demo_world" name="demo_world" output="screen" />
