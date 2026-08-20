@@ -67,7 +67,8 @@ TEST(AStarPlanner, ReturnsEmptyWhenStartIsOccupied) {
   grid.inflateObstacles(obstacles, 0.2, 0.0, 0.0);
 
   AStarPlanner planner;
-  const auto path = planner.plan(grid, Eigen::Vector3d(0.0, 0.0, 1.0), Eigen::Vector3d(3.0, 0.0, 1.0));
+  const auto path = planner.plan(
+    grid, Eigen::Vector3d(0.0, 0.0, 1.0), Eigen::Vector3d(3.0, 0.0, 1.0));
   EXPECT_TRUE(path.empty());
 }
 

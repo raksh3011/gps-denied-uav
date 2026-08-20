@@ -20,9 +20,9 @@
 #ifndef UAV_PLANNING__TRAJECTORY_GENERATOR_HPP_
 #define UAV_PLANNING__TRAJECTORY_GENERATOR_HPP_
 
-#include <vector>
-
 #include <Eigen/Core>
+
+#include <vector>
 
 #include "uav_interfaces/msg/trajectory_point.hpp"
 
@@ -37,7 +37,7 @@ public:
   // than this, they're thinned first so the resulting Trajectory isn't
   // needlessly long — points still land exactly on the original path,
   // just not on every single grid cell.
-  TrajectoryGenerator(double max_speed_mps, double waypoint_spacing_m = 0.5);
+  explicit TrajectoryGenerator(double max_speed_mps, double waypoint_spacing_m = 0.5);
 
   std::vector<uav_interfaces::msg::TrajectoryPoint> generate(
     const std::vector<Eigen::Vector3d> & waypoints) const;

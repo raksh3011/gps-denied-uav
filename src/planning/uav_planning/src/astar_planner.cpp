@@ -70,8 +70,8 @@ std::vector<Eigen::Vector3d> AStarPlanner::plan(
   if (grid.isOccupied(start_idx) || grid.isOccupied(goal_idx)) {return {};}
 
   static const std::array<GridIndex, 6> neighbors = {{
-      {1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}
-    }};
+    {1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}
+  }};
 
   const int sx = grid.sizeX();
   const int sy = grid.sizeY();

@@ -20,10 +20,10 @@
 #ifndef UAV_PLANNING__GRID3D_HPP_
 #define UAV_PLANNING__GRID3D_HPP_
 
+#include <Eigen/Core>
+
 #include <cstdint>
 #include <vector>
-
-#include <Eigen/Core>
 
 namespace uav_planning
 {

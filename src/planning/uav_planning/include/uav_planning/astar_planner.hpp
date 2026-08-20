@@ -18,9 +18,9 @@
 #ifndef UAV_PLANNING__ASTAR_PLANNER_HPP_
 #define UAV_PLANNING__ASTAR_PLANNER_HPP_
 
-#include <vector>
-
 #include <Eigen/Core>
+
+#include <vector>
 
 #include "uav_planning/grid3d.hpp"
 
