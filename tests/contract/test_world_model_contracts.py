@@ -5,6 +5,8 @@ depends on a PointCloud2 (normally FAST-LIO2's /cloud_registered) and
 LocalizationState, both synthesized directly here.
 Run with: `pytest tests/contract -v`
 """
+import os
+import signal
 import struct
 import subprocess
 import time
@@ -32,16 +34,26 @@ def ros_context():
 
 class RunningNode:
     def __init__(self, package: str, executable: str, *args: str):
+        # start_new_session: kill the ros2-run wrapper AND the node binary
+        # together — see the identical comment in test_node_contracts.py.
         self.proc = subprocess.Popen(
             ['ros2', 'run', package, executable, *args],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True)
 
     def stop(self):
-        self.proc.terminate()
+        try:
+            os.killpg(os.getpgid(self.proc.pid), signal.SIGTERM)
+        except ProcessLookupError:
+            pass
         try:
             self.proc.wait(timeout=5)
         except subprocess.TimeoutExpired:
-            self.proc.kill()
+            try:
+                os.killpg(os.getpgid(self.proc.pid), signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            self.proc.wait()
 
 
 def settle_and_clear(nodes, *collectors, seconds=SETTLE_SECONDS):

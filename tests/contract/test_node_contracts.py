@@ -9,6 +9,8 @@ be delivered after the next test's subscriber comes up. Every test below
 drains and discards whatever arrives during a settle window, then clears
 its collectors, before it starts asserting on freshly observed messages.
 """
+import os
+import signal
 import subprocess
 import time
 
@@ -39,16 +41,28 @@ class RunningNode:
     """Launches a compiled mock node as a subprocess and tears it down."""
 
     def __init__(self, package: str, executable: str):
+        # start_new_session puts the ros2-run wrapper AND the node binary in
+        # one process group we can kill together — terminating only the
+        # wrapper orphans the node, which then keeps publishing into every
+        # later test in the file.
         self.proc = subprocess.Popen(
             ['ros2', 'run', package, executable],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True)
 
     def stop(self):
-        self.proc.terminate()
+        try:
+            os.killpg(os.getpgid(self.proc.pid), signal.SIGTERM)
+        except ProcessLookupError:
+            pass
         try:
             self.proc.wait(timeout=5)
         except subprocess.TimeoutExpired:
-            self.proc.kill()
+            try:
+                os.killpg(os.getpgid(self.proc.pid), signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            self.proc.wait()
 
 
 def settle_and_clear(nodes, *collectors, seconds=SETTLE_SECONDS):
