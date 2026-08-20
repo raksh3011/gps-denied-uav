@@ -1,0 +1,102 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+  - Class: rviz_common/Views
+    Name: Views
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Enabled: true
+      Cell Size: 1
+      Plane Cell Count: 30
+      Value: true
+    - Class: rviz_default_plugins/Path
+      Name: PlannedPath
+      Enabled: true
+      Topic:
+        Value: /viz/planned_path
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+      Color: 0; 220; 60
+      Line Style: Billboards
+      Line Width: 0.08
+      Value: true
+    - Class: rviz_default_plugins/Path
+      Name: FlownTrack
+      Enabled: true
+      Topic:
+        Value: /viz/track
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+      Color: 160; 160; 160
+      Line Style: Lines
+      Value: true
+    - Class: rviz_default_plugins/Pose
+      Name: Vehicle
+      Enabled: true
+      Topic:
+        Value: /viz/pose
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+      Shape: Axes
+      Axes Length: 0.8
+      Axes Radius: 0.08
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Name: Obstacles
+      Enabled: true
+      Topic:
+        Value: /viz/obstacles
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+      Value: true
+    - Class: rviz_default_plugins/Marker
+      Name: OccupiedVoxels
+      Enabled: true
+      Topic:
+        Value: /viz/occupied_voxels
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+      Value: true
+    - Class: rviz_default_plugins/Marker
+      Name: Goal
+      Enabled: true
+      Topic:
+        Value: /viz/goal
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+      Value: true
+  Global Options:
+    Background Color: 32; 34; 40
+    Fixed Frame: map
+    Frame Rate: 15
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Name: Current View
+      Distance: 22
+      Pitch: 0.9
+      Yaw: 5.5
+      Focal Point:
+        X: 1
+        Y: 0
+        Z: 1.5
+    Saved: ~
+Window Geometry:
+  Height: 800
+  Width: 1200
