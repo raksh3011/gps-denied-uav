@@ -181,6 +181,11 @@ private:
       last_goal_ = goal;
     }
 
+    // Confidence-adaptive risk margin: feed the live localization quality
+    // into the local planner every tick. Cheap no-op unless the risk band
+    // actually crosses a threshold (see DStarLitePlanner header).
+    dstar_.setLocalizationRisk(loc.confidence, loc.status);
+
     std::vector<Eigen::Vector3d> path = dstar_.update(grid, start);
     if (path.empty() && dstar_.isInitialized()) {
       // update() returns empty both for "genuinely unreachable" and for
@@ -189,6 +194,7 @@ private:
       // it goes false in the latter case, so try exactly once more here
       // rather than reporting failure for a recoverable map re-centering.
       dstar_.initialize(grid, start, goal);
+      dstar_.setLocalizationRisk(loc.confidence, loc.status);   // initialize() resets the band
       path = dstar_.update(grid, start);
     }
 

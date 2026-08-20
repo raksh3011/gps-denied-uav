@@ -14,6 +14,10 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <limits>
+#include <vector>
+
 #include "uav_planning/dstar_lite_planner.hpp"
 
 using uav_planning::DStarLitePlanner;
@@ -101,6 +105,92 @@ TEST(DStarLitePlanner, GoalOccupiedGivesEmptyPath) {
 
   planner.initialize(grid, start, goal);
   EXPECT_TRUE(planner.update(grid, start).empty());
+}
+
+TEST(DStarLitePlanner, RiskBandQuantizationMapsConfidenceAndStatus) {
+  DStarLitePlanner planner;
+  // NOMINAL status, high confidence -> baseline multiplier.
+  planner.setLocalizationRisk(0.95F, 0);
+  EXPECT_DOUBLE_EQ(planner.riskMultiplier(), 1.0);
+  // Small confidence wobble inside the same band -> no change (quantized).
+  planner.setLocalizationRisk(0.85F, 0);
+  EXPECT_DOUBLE_EQ(planner.riskMultiplier(), 1.0);
+  // Marginal confidence -> middle band.
+  planner.setLocalizationRisk(0.5F, 0);
+  EXPECT_DOUBLE_EQ(planner.riskMultiplier(), 2.0);
+  // Very low confidence -> highest band.
+  planner.setLocalizationRisk(0.2F, 0);
+  EXPECT_DOUBLE_EQ(planner.riskMultiplier(), 4.0);
+  // Status escalates the band even when confidence looks fine.
+  planner.setLocalizationRisk(0.95F, 1);   // STATUS_DEGRADED
+  EXPECT_DOUBLE_EQ(planner.riskMultiplier(), 2.0);
+  planner.setLocalizationRisk(0.95F, 2);   // STATUS_LOST
+  EXPECT_DOUBLE_EQ(planner.riskMultiplier(), 4.0);
+}
+
+TEST(DStarLitePlanner, DegradedLocalizationPrefersWiderBerth) {
+  Grid3D grid(0.5, Eigen::Vector3d(-5.0, -5.0, 0.0), 20, 20, 4);
+  // Obstacle astride the direct line, with a wide soft-cost apron.
+  std::vector<ObstacleSphere> obstacles = {{Eigen::Vector3d(0.5, 0.0, 1.0), 0.6}};
+  grid.inflateObstacles(obstacles, 0.2, 1.5, 2.0);
+
+  const Eigen::Vector3d start(-2.0, 0.0, 1.0);
+  const Eigen::Vector3d goal(3.0, 0.0, 1.0);
+
+  auto soft_cost_along = [&grid](const std::vector<Eigen::Vector3d> & path) {
+      double sum = 0.0;
+      for (const auto & p : path) {
+        sum += grid.traversalCost(grid.worldToIndex(p));
+      }
+      return sum;
+    };
+
+  DStarLitePlanner nominal;
+  nominal.initialize(grid, start, goal);
+  nominal.setLocalizationRisk(0.95F, 0);
+  const auto nominal_path = nominal.update(grid, start);
+  ASSERT_FALSE(nominal_path.empty());
+
+  DStarLitePlanner lost;
+  lost.initialize(grid, start, goal);
+  lost.setLocalizationRisk(0.1F, 2);   // STATUS_LOST
+  const auto lost_path = lost.update(grid, start);
+  ASSERT_FALSE(lost_path.empty());
+
+  // Under degraded localization the planner must not cut closer to the
+  // obstacle than it did when localization was healthy — and it should
+  // accumulate no more raw proximity cost than the nominal path did.
+  auto min_clearance = [&obstacles](const std::vector<Eigen::Vector3d> & path) {
+      double best = std::numeric_limits<double>::infinity();
+      for (const auto & p : path) {
+        best = std::min(best, (p - obstacles.front().center).norm());
+      }
+      return best;
+    };
+  EXPECT_GE(min_clearance(lost_path) + 1e-9, min_clearance(nominal_path));
+  EXPECT_LE(soft_cost_along(lost_path), soft_cost_along(nominal_path) + 1e-9);
+}
+
+TEST(DStarLitePlanner, RiskBandChangeMidFlightReroutesIncrementally) {
+  Grid3D grid(0.5, Eigen::Vector3d(-5.0, -5.0, 0.0), 20, 20, 4);
+  std::vector<ObstacleSphere> obstacles = {{Eigen::Vector3d(0.5, 0.0, 1.0), 0.6}};
+  grid.inflateObstacles(obstacles, 0.2, 1.5, 2.0);
+
+  const Eigen::Vector3d start(-2.0, 0.0, 1.0);
+  const Eigen::Vector3d goal(3.0, 0.0, 1.0);
+
+  DStarLitePlanner planner;
+  planner.initialize(grid, start, goal);
+  const auto before = planner.update(grid, start);
+  ASSERT_FALSE(before.empty());
+
+  // Localization degrades mid-flight — no re-initialize, same planner.
+  planner.setLocalizationRisk(0.1F, 2);
+  const auto after = planner.update(grid, start);
+  ASSERT_FALSE(after.empty());
+  EXPECT_TRUE(planner.isInitialized());
+  EXPECT_NEAR((after.front() - start).norm(), 0.0, 0.5);
+  EXPECT_NEAR((after.back() - goal).norm(), 0.0, 0.5);
 }
 
 int main(int argc, char ** argv)

@@ -17,7 +17,30 @@ Not yet done:
 
 ## On "novel IP"
 
-Worth being direct about this: what's built here is a careful application of two well-established, real-time-proven algorithms — **Theta*** (Nash et al., 2007, any-angle path planning) for the global planner, and **D* Lite** (Koenig & Likhachev, 2002, incremental replanning — the same family of algorithm used on real fielded rovers) for the local planner. Neither is a new algorithm invented here. What's specific to this project is the combination and the integration: Theta* seeding a persistent D* Lite instance that then runs incrementally every tick against a live occupancy grid built from `LocalMap` + inflated `ObstacleSet`, wired into this exact interface contract. That's a legitimate, defensible engineering choice for "shortest global path" + "low-latency local reaction" — but claiming the underlying algorithms themselves as novel would be dishonest, and none of the numbers below are backed by testing under real flight conditions yet ("even in extreme conditions" is a claim that needs real test data, not asserted).
+Worth being direct about this: the base algorithms are a careful application of two well-established, real-time-proven algorithms — **Theta*** (Nash et al., 2007, any-angle path planning) for the global planner, and **D* Lite** (Koenig & Likhachev, 2002, incremental replanning — the same family of algorithm used on real fielded rovers) for the local planner. Neither is a new algorithm invented here, and claiming otherwise would be dishonest. None of the timing claims below are backed by testing under real flight conditions yet either ("even in extreme conditions" is a claim that needs real test data, not asserted).
+
+What *is* our own contribution is the extension below.
+
+## Algorithmic contribution: confidence-adaptive risk margin (CARM)
+
+The claim, stated precisely so it stays honest:
+
+> **The local planner treats the vehicle's own live localization quality (`LocalizationState.confidence`/`status` from the LIO pipeline) as a first-class, quantized risk signal inside D* Lite's incremental cost structure, re-keying only the cells that carry obstacle-proximity soft cost when the risk band crosses a threshold — so a degrading pose estimate widens the effective obstacle berth in O(|risk cells|) incremental work, without recomputing inflation geometry, without a full re-search, and without breaking D* Lite's admissibility.**
+
+Why this specific mechanism (and its cost profile):
+
+- **Time**: a risk-band crossing touches `updateVertex()` only for cells with nonzero soft cost (`risk_cells_`, maintained incrementally as the map diffs) plus their immediate neighbors, then runs the normal `computeShortestPath()` propagation. Free space — the overwhelming majority of the grid in flight — is untouched. Ticks where the band doesn't cross are a single integer compare, O(1).
+- **Space**: one `std::vector<int>` of soft-cost cell ids, one double, one int. No second grid, no per-cell uncertainty field.
+- **Stability** ("other costs"): the signal is quantized into 3 bands (NOMINAL / DEGRADED / LOST, with confidence thresholds 0.8 / 0.4 as the fallback when `status` alone doesn't escalate). Raw confidence/covariance is noisy tick-to-tick; applying it continuously would re-key cells every single tick and destroy exactly the bounded-incremental-update property D* Lite exists to provide. Quantization is what makes uncertainty-awareness *compatible with* incrementality.
+- **Correctness**: the multiplier only ever scales the *soft* proximity cost (never the base `resolution_` step cost, never occupancy), so edge costs only increase above the Euclidean baseline — the heuristic stays admissible and D* Lite's optimality-w.r.t.-current-costs guarantee is untouched.
+
+The operational rationale: in a GPS-denied stack, the map and the pose come from the *same* LIO estimate. When localization degrades, the vehicle's believed position — and therefore its believed clearance from every obstacle — is less trustworthy, so the rational response is to buy physical margin. CARM makes the planner do that automatically and reversibly (confidence recovers → band drops → paths tighten again), rather than Safety having to halt the vehicle outright.
+
+Honest prior-art positioning (checked 2026-08-20, see sources in the project discussion): uncertainty-aware D* Lite variants exist — notably **URD*/URA*** (Fan et al., 2023), which feeds *semantic terrain-traversability* uncertainty from an image segmentation network into D* Lite for off-road ground vehicles — and *perception-aware* planners exist that shape paths to keep localization healthy (Costante et al., 2016; and localization-uncertainty-corridor planners for urban UAVs). Uncertainty-aware LIO also exists (**UA-LIO**, 2025) but stops at the odometry output. We did not find published work that closes this specific loop — live LIO ego-pose confidence quantized into banded soft-cost multipliers inside an incremental D* Lite for an aerial vehicle, with the incremental re-key restricted to a maintained soft-cost cell set. That's a narrow but genuine gap, and it's the honest scope of the claim: **a novel integration mechanism with a specific complexity guarantee — not a new search algorithm.** Before presenting this externally (paper, patent, pitch), a proper literature review beyond a web search is still required.
+
+Implementation: `DStarLitePlanner::setLocalizationRisk()` in [dstar_lite_planner.cpp](../src/planning/uav_planning/src/dstar_lite_planner.cpp), wired per-tick in `real_planner_node.cpp`; behavior pinned by the three `RiskBand*`/`DegradedLocalization*` tests in `test_dstar_lite_planner.cpp`.
+
+What's specific to this project beyond CARM is the combination and the integration: Theta* seeding a persistent D* Lite instance that then runs incrementally every tick against a live occupancy grid built from `LocalMap` + inflated `ObstacleSet`, wired into this exact interface contract — a legitimate, defensible engineering choice for "shortest global path" + "low-latency local reaction", but engineering, not algorithm invention.
 
 ## Architecture
 

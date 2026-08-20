@@ -31,6 +31,7 @@
 
 #include <Eigen/Core>
 
+#include <cstdint>
 #include <limits>
 #include <queue>
 #include <vector>
@@ -55,6 +56,27 @@ public:
   // initialized / the grid dimensions changed (which forces a fresh
   // initialize() — see docs/PLANNING.md).
   std::vector<Eigen::Vector3d> update(const Grid3D & grid, const Eigen::Vector3d & start);
+
+  // Confidence-adaptive risk margin (see docs/PLANNING.md, "Algorithmic
+  // contribution: confidence-adaptive risk margin"). Feeds the live
+  // localization confidence/status (LocalizationState.confidence/status)
+  // into the search as a scalar multiplier on each cell's *existing*
+  // soft-cost (the proximity buffer Grid3D::inflateObstacles already
+  // computed around obstacles) — degrading confidence pushes the search
+  // toward paths that keep a wider berth from obstacles, without
+  // recomputing the inflation geometry itself.
+  //
+  // Deliberately quantized into a handful of discrete bands rather than
+  // applied continuously: raw covariance/confidence is noisy tick-to-tick,
+  // and re-keying every cell in queue_ on every tick would turn D* Lite's
+  // bounded incremental update back into an unbounded one. A band only
+  // touches `updateVertex()` for cells that actually carry nonzero soft
+  // cost (risk_cells_, tracked incrementally as the map changes) — empty
+  // free-space cells are untouched, so cost is O(|risk_cells_|) on a band
+  // crossing and O(1) otherwise, not O(|grid|).
+  void setLocalizationRisk(float confidence, uint8_t status);
+
+  double riskMultiplier() const {return risk_multiplier_;}
 
   bool isInitialized() const {return initialized_;}
 
@@ -86,6 +108,8 @@ private:
   void resizeFor(const Grid3D & grid);
   void applySnapshot(const Grid3D & grid);   // full snapshot copy, used by initialize()
   std::vector<int> diffAndUpdateSnapshot(const Grid3D & grid);   // returns changed cell ids
+  static int riskBandFor(float confidence, uint8_t status);
+  static double riskMultiplierForBand(int band);
   Key calculateKey(int id) const;
   void updateVertex(int id);
   void computeShortestPath();
@@ -106,6 +130,9 @@ private:
 
   std::vector<bool> occupied_snapshot_;
   std::vector<double> cost_snapshot_;
+  std::vector<int> risk_cells_;   // ids with cost_snapshot_ > 0, kept incrementally
+  double risk_multiplier_{1.0};
+  int risk_band_{0};
 
   std::vector<double> g_;
   std::vector<double> rhs_;

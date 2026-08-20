@@ -67,7 +67,7 @@ std::vector<int> DStarLitePlanner::neighborIds(int id) const
 double DStarLitePlanner::edgeCost(int /*from_id*/, int to_id) const
 {
   if (occupied_snapshot_[to_id]) {return kInf;}
-  return resolution_ + cost_snapshot_[to_id];
+  return resolution_ + cost_snapshot_[to_id] * risk_multiplier_;
 }
 
 double DStarLitePlanner::heuristic(int a_id, int b_id) const
@@ -176,10 +176,14 @@ void DStarLitePlanner::resizeFor(const Grid3D & grid)
   best_key_.assign(n, Key{});
   in_queue_.assign(n, false);
   queue_ = std::priority_queue<QueueEntry, std::vector<QueueEntry>, QueueEntryGreater>();
+  risk_cells_.clear();
+  risk_multiplier_ = 1.0;
+  risk_band_ = 0;
 }
 
 void DStarLitePlanner::applySnapshot(const Grid3D & grid)
 {
+  risk_cells_.clear();
   for (int z = 0; z < size_z_; ++z) {
     for (int y = 0; y < size_y_; ++y) {
       for (int x = 0; x < size_x_; ++x) {
@@ -187,6 +191,7 @@ void DStarLitePlanner::applySnapshot(const Grid3D & grid)
         const int id = toId(idx);
         occupied_snapshot_[id] = grid.isOccupied(idx);
         cost_snapshot_[id] = grid.traversalCost(idx);
+        if (cost_snapshot_[id] > 0.0) {risk_cells_.push_back(id);}
       }
     }
   }
@@ -202,15 +207,61 @@ std::vector<int> DStarLitePlanner::diffAndUpdateSnapshot(const Grid3D & grid)
         const int id = toId(idx);
         const bool occ = grid.isOccupied(idx);
         const double cost = grid.traversalCost(idx);
+        const bool was_risk = cost_snapshot_[id] > 0.0;
+        const bool is_risk = cost > 0.0;
         if (occ != occupied_snapshot_[id] || cost != cost_snapshot_[id]) {
           occupied_snapshot_[id] = occ;
           cost_snapshot_[id] = cost;
           changed.push_back(id);
         }
+        if (is_risk && !was_risk) {risk_cells_.push_back(id);}
       }
     }
   }
+  if (!changed.empty()) {
+    risk_cells_.erase(
+      std::remove_if(
+        risk_cells_.begin(), risk_cells_.end(),
+        [this](int id) {return cost_snapshot_[id] <= 0.0;}),
+      risk_cells_.end());
+  }
   return changed;
+}
+
+int DStarLitePlanner::riskBandFor(float confidence, uint8_t status)
+{
+  if (status == 2 /* STATUS_LOST */ || confidence < 0.4F) {return 2;}
+  if (status == 1 /* STATUS_DEGRADED */ || confidence < 0.8F) {return 1;}
+  return 0;
+}
+
+double DStarLitePlanner::riskMultiplierForBand(int band)
+{
+  // Band 2 (LOST / very low confidence): strongly prefer a wide berth.
+  // Band 1 (DEGRADED / marginal): moderately wider berth.
+  // Band 0 (NOMINAL): soft cost used exactly as computed by Grid3D.
+  if (band >= 2) {return 4.0;}
+  if (band == 1) {return 2.0;}
+  return 1.0;
+}
+
+void DStarLitePlanner::setLocalizationRisk(float confidence, uint8_t status)
+{
+  const int band = riskBandFor(confidence, status);
+  if (band == risk_band_) {return;}
+  risk_band_ = band;
+  risk_multiplier_ = riskMultiplierForBand(band);
+  if (!initialized_) {return;}
+
+  // Only the cells that actually carry soft cost need re-keying — free
+  // space and hard-occupied cells are unaffected by risk_multiplier_.
+  for (int id : risk_cells_) {
+    updateVertex(id);
+    for (int n : neighborIds(id)) {
+      updateVertex(n);
+    }
+  }
+  computeShortestPath();
 }
 
 void DStarLitePlanner::initialize(
