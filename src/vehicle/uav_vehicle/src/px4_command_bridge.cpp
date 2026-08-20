@@ -74,99 +74,99 @@ BridgeOutput Px4CommandBridge::update(const VehicleCommandInput & in, const Px4S
 
   switch (in.mode) {
     case mode::kPosition: {
-      StreamedSetpoint sp;
-      sp.position_control = true;
-      sp.position_ned = enuToNed(in.position);
-      sp.yaw_ned = enuYawToNed(in.yaw);
-      out.stream_setpoint = true;
-      out.setpoint = sp;
-      last_setpoint_ = sp;
-      have_last_setpoint_ = true;
-      have_held_position_ = false;
-      land_issued_ = rtl_issued_ = disarm_issued_ = false;
-      break;
-    }
+        StreamedSetpoint sp;
+        sp.position_control = true;
+        sp.position_ned = enuToNed(in.position);
+        sp.yaw_ned = enuYawToNed(in.yaw);
+        out.stream_setpoint = true;
+        out.setpoint = sp;
+        last_setpoint_ = sp;
+        have_last_setpoint_ = true;
+        have_held_position_ = false;
+        land_issued_ = rtl_issued_ = disarm_issued_ = false;
+        break;
+      }
     case mode::kVelocity: {
-      StreamedSetpoint sp;
-      sp.velocity_control = true;
-      sp.velocity_ned = enuToNed(in.velocity);
-      sp.yaw_ned = enuYawToNed(in.yaw);
-      out.stream_setpoint = true;
-      out.setpoint = sp;
-      last_setpoint_ = sp;
-      have_last_setpoint_ = true;
-      have_held_position_ = false;
-      land_issued_ = rtl_issued_ = disarm_issued_ = false;
-      break;
-    }
+        StreamedSetpoint sp;
+        sp.velocity_control = true;
+        sp.velocity_ned = enuToNed(in.velocity);
+        sp.yaw_ned = enuYawToNed(in.yaw);
+        out.stream_setpoint = true;
+        out.setpoint = sp;
+        last_setpoint_ = sp;
+        have_last_setpoint_ = true;
+        have_held_position_ = false;
+        land_issued_ = rtl_issued_ = disarm_issued_ = false;
+        break;
+      }
     case mode::kHold: {
-      // Freeze at the position captured when HOLD first began (or the
-      // last streamed position setpoint, if there was one) — a held
-      // POSITION setpoint lets PX4 actively correct drift, unlike a
-      // velocity=0 setpoint which does not.
-      if (!have_held_position_) {
-        if (have_last_setpoint_ && last_setpoint_.position_control) {
-          held_position_ned_ = last_setpoint_.position_ned;
-          held_yaw_ned_ = last_setpoint_.yaw_ned;
-        } else {
-          held_position_ned_ = enuToNed(in.position);
-          held_yaw_ned_ = enuYawToNed(in.yaw);
+        // Freeze at the position captured when HOLD first began (or the
+        // last streamed position setpoint, if there was one) — a held
+        // POSITION setpoint lets PX4 actively correct drift, unlike a
+        // velocity=0 setpoint which does not.
+        if (!have_held_position_) {
+          if (have_last_setpoint_ && last_setpoint_.position_control) {
+            held_position_ned_ = last_setpoint_.position_ned;
+            held_yaw_ned_ = last_setpoint_.yaw_ned;
+          } else {
+            held_position_ned_ = enuToNed(in.position);
+            held_yaw_ned_ = enuYawToNed(in.yaw);
+          }
+          have_held_position_ = true;
         }
-        have_held_position_ = true;
+        StreamedSetpoint sp;
+        sp.position_control = true;
+        sp.position_ned = held_position_ned_;
+        sp.yaw_ned = held_yaw_ned_;
+        out.stream_setpoint = true;
+        out.setpoint = sp;
+        last_setpoint_ = sp;
+        have_last_setpoint_ = true;
+        land_issued_ = rtl_issued_ = disarm_issued_ = false;
+        break;
       }
-      StreamedSetpoint sp;
-      sp.position_control = true;
-      sp.position_ned = held_position_ned_;
-      sp.yaw_ned = held_yaw_ned_;
-      out.stream_setpoint = true;
-      out.setpoint = sp;
-      last_setpoint_ = sp;
-      have_last_setpoint_ = true;
-      land_issued_ = rtl_issued_ = disarm_issued_ = false;
-      break;
-    }
     case mode::kLand: {
-      // Keep streaming the last setpoint so PX4 stays in offboard while
-      // the one-shot LAND command takes effect (LAND itself switches
-      // PX4's flight mode away from Offboard; after that our stream no
-      // longer matters).
-      if (have_last_setpoint_) {
-        out.stream_setpoint = true;
-        out.setpoint = last_setpoint_;
+        // Keep streaming the last setpoint so PX4 stays in offboard while
+        // the one-shot LAND command takes effect (LAND itself switches
+        // PX4's flight mode away from Offboard; after that our stream no
+        // longer matters).
+        if (have_last_setpoint_) {
+          out.stream_setpoint = true;
+          out.setpoint = last_setpoint_;
+        }
+        if (!land_issued_) {
+          out.command = Px4Command::kLand;
+          land_issued_ = true;
+        }
+        rtl_issued_ = false;
+        disarm_issued_ = false;
+        have_held_position_ = false;
+        break;
       }
-      if (!land_issued_) {
-        out.command = Px4Command::kLand;
-        land_issued_ = true;
-      }
-      rtl_issued_ = false;
-      disarm_issued_ = false;
-      have_held_position_ = false;
-      break;
-    }
     case mode::kRtl: {
-      if (have_last_setpoint_) {
-        out.stream_setpoint = true;
-        out.setpoint = last_setpoint_;
+        if (have_last_setpoint_) {
+          out.stream_setpoint = true;
+          out.setpoint = last_setpoint_;
+        }
+        if (!rtl_issued_) {
+          out.command = Px4Command::kReturnToLaunch;
+          rtl_issued_ = true;
+        }
+        land_issued_ = false;
+        disarm_issued_ = false;
+        have_held_position_ = false;
+        break;
       }
-      if (!rtl_issued_) {
-        out.command = Px4Command::kReturnToLaunch;
-        rtl_issued_ = true;
-      }
-      land_issued_ = false;
-      disarm_issued_ = false;
-      have_held_position_ = false;
-      break;
-    }
     case mode::kDisarm: {
-      if (!disarm_issued_) {
-        out.command = Px4Command::kDisarm;
-        disarm_issued_ = true;
+        if (!disarm_issued_) {
+          out.command = Px4Command::kDisarm;
+          disarm_issued_ = true;
+        }
+        land_issued_ = false;
+        rtl_issued_ = false;
+        have_held_position_ = false;
+        break;
       }
-      land_issued_ = false;
-      rtl_issued_ = false;
-      have_held_position_ = false;
-      break;
-    }
     default:
       break;
   }
