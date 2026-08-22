@@ -490,6 +490,25 @@ void printSummary(const ScenarioResult & r)
   }
 }
 
+// Isolates diffAndUpdateSnapshot()'s cost from any actual search work:
+// calls update() repeatedly with the IDENTICAL position and an
+// UNCHANGED grid — nothing at all for the search to do — so any
+// measured cost can only be the unconditional full-grid diff scan
+// itself, not position movement or re-convergence. Confirms (rather
+// than just infers from reading the source) the Next Tasks finding in
+// docs/PLANNING.md about diffAndUpdateSnapshot()'s O(total cells) cost.
+double diagnoseNoOpUpdateCostMs(Grid3D & grid, const Eigen::Vector3d & start,
+  const Eigen::Vector3d & goal, int ticks = 20)
+{
+  DStarLitePlanner dstar;
+  dstar.initialize(grid, start, goal);
+  double total_ms = 0.0;
+  for (int i = 0; i < ticks; ++i) {
+    total_ms += timeMsOf([&]() {dstar.update(grid, start);});
+  }
+  return total_ms / ticks;
+}
+
 }  // namespace
 
 int main(int argc, char ** argv)
@@ -507,13 +526,35 @@ int main(int argc, char ** argv)
     printSummary(r);
   }
 
+  // Diagnostic: isolates the diff-scan cost seen above from any actual
+  // search work (see the function's own comment).
+  Grid3D diag_grid_sparse = makeGrid();
+  diag_grid_sparse.inflateObstacles(
+    sparseObstacles(), kHardMarginM, kSoftMarginM, kSoftCostWeight);
+  const double noop_sparse_ms = diagnoseNoOpUpdateCostMs(diag_grid_sparse, kStart, kGoal);
+
+  Grid3D diag_grid_dense = makeGrid();
+  diag_grid_dense.inflateObstacles(
+    denseObstacles(), kHardMarginM, kSoftMarginM, kSoftCostWeight);
+  const double noop_dense_ms = diagnoseNoOpUpdateCostMs(diag_grid_dense, kStart, kGoal);
+
+  std::printf(
+    "\n=== Diagnostic: update() cost with ZERO position/grid change "
+    "(isolates the diff-scan) ===\n");
+  std::printf("  sparse arena: %.3f ms/call (nothing at all for the search to do)\n",
+    noop_sparse_ms);
+  std::printf("  dense arena:  %.3f ms/call (nothing at all for the search to do)\n",
+    noop_dense_ms);
+
   std::ofstream out(out_path);
   if (!out.is_open()) {
     std::printf("\nCould not open '%s' for writing — pass a writable path as argv[1].\n",
       out_path.c_str());
     return 1;
   }
-  out << "{\"scenarios\":[";
+  out << "{\"diagnostics\":{\"noop_update_sparse_ms\":" << noop_sparse_ms
+      << ",\"noop_update_dense_ms\":" << noop_dense_ms << "},";
+  out << "\"scenarios\":[";
   for (size_t i = 0; i < results.size(); ++i) {
     writeScenario(out, results[i]);
     if (i + 1 < results.size()) {out << ",";}
