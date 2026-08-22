@@ -226,8 +226,16 @@ MetricSet runThetaOnce(
 }
 
 // Runs D* Lite for `ticks` steps of the vehicle crawling toward goal
-// (worst-case-latency style, matching bench_planning's methodology),
-// returns the LAST tick's path plus the average per-tick update() cost.
+// (worst-case-latency style, matching bench_planning's methodology).
+// Path length/smoothness/clearance are measured from the FIRST path (the
+// full start-to-goal route, right after initialize()) — the fair,
+// apples-to-apples basis for comparing against Traditional/Theta*'s own
+// full-route plans. avg_replan_time_ms is measured separately across
+// the following ticks as the vehicle virtually advances. An earlier
+// version reported the LAST tick's path for length/smoothness too — by
+// then the simulated vehicle had already flown ~3m of the 20m route, so
+// its "path" was silently a shorter remaining-distance sub-problem, not
+// the same problem Traditional/Theta* were asked to solve.
 MetricSet runDStarSteady(
   Grid3D & grid, const Eigen::Vector3d & start, const Eigen::Vector3d & goal,
   const std::vector<ObstacleSphere> & obstacles, int ticks = 30)
@@ -235,13 +243,14 @@ MetricSet runDStarSteady(
   MetricSet m;
   DStarLitePlanner dstar;
   m.planning_time_ms = timeMsOf([&]() {dstar.initialize(grid, start, goal);});
+  m.path = dstar.update(grid, start);   // full route, before any advancement
 
   double total_ms = 0.0;
   Eigen::Vector3d pos = start;
   const Eigen::Vector3d step = (goal - start).normalized() * 0.1;
   for (int i = 0; i < ticks; ++i) {
     pos += step;
-    total_ms += timeMsOf([&]() {m.path = dstar.update(grid, pos);});
+    total_ms += timeMsOf([&]() {dstar.update(grid, pos);});
   }
   m.avg_replan_time_ms = total_ms / ticks;
   m.path_length_m = pathLength(m.path);
