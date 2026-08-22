@@ -1,6 +1,6 @@
 <!--
   Two real modules at once: real_world_model (VoxelMapper/ObstacleTracker
-  over a live point cloud) feeding real_planner (Theta* + D* Lite + CARM).
+  over a live point cloud) feeding real_planner (Theta* + D* Lite + Margasoochi).
   Localization, Mission, Safety, Vehicle stay mocked.
 
   Prerequisite for real perception data: something must publish the point

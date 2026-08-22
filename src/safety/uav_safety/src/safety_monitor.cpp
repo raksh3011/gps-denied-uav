@@ -149,7 +149,7 @@ SafetyOutputs SafetyMonitor::update(const SafetyInputs & in, double dt_s)
     out.cmd_valid = false;
     out.overall_level = kLevelCritical;
   } else {
-    // Healthy, including loc_degraded: CARM (Planning's own confidence-
+    // Healthy, including loc_degraded: Margasoochi (Planning's own confidence-
     // adaptive risk margin) already responded to degraded localization
     // by widening obstacle standoff — Safety defers to that and only
     // reflects it in reported health, not by blocking the command.

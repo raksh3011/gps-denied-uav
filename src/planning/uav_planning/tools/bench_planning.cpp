@@ -26,9 +26,9 @@
 //     naive "replan from scratch every tick" design would pay instead
 //     (repeatedly re-running ThetaStarPlanner) — this is the actual,
 //     measured payoff of being incremental, not an asserted one.
-//  3. CARM's risk-band-switch cost (setLocalizationRisk re-keying only
+//  3. Margasoochi's risk-band-switch cost (setLocalizationRisk re-keying only
 //     risk_cells_) vs. a full re-initialize — the actual, measured
-//     payoff of CARM applying a scalar multiplier instead of recomputing
+//     payoff of Margasoochi applying a scalar multiplier instead of recomputing
 //     inflation geometry.
 //  4. The deadline hardening's real worst-case latency under an
 //     artificially tiny deadline, confirming empirically (not just by
@@ -159,7 +159,7 @@ int main()
       naive_total_ms / kTicks, naive_total_ms / std::max(dstar_total_ms, 1e-6));
   }
 
-  // --- 3. CARM risk-band switch vs. full re-initialize ---
+  // --- 3. Margasoochi risk-band switch vs. full re-initialize ---
   {
     Grid3D grid = makeArenaGrid();
     DStarLitePlanner dstar;
@@ -169,7 +169,7 @@ int main()
       [&]() {dstar.setLocalizationRisk(0.5F, 1 /* STATUS_DEGRADED */);});
     const double reinit_ms = timeMs([&]() {dstar.initialize(grid, kStart, kGoal);});
 
-    std::printf("[3] CARM risk-band switch vs. a full re-initialize\n");
+    std::printf("[3] Margasoochi risk-band switch vs. a full re-initialize\n");
     std::printf("    setLocalizationRisk() band change: %8.3f ms\n", band_switch_ms);
     std::printf(
       "    Full initialize() (what a naive design would need instead): %8.3f ms (%.1fx more)\n\n",

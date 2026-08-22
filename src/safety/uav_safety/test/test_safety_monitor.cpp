@@ -77,7 +77,7 @@ TEST(SafetyMonitor, ForwardsValidCommandWhenAllHealthy) {
 }
 
 TEST(SafetyMonitor, DegradedLocalizationDoesNotBlockCommand) {
-  // CARM already responds to degraded localization on the Planning side;
+  // Margasoochi already responds to degraded localization on the Planning side;
   // Safety must defer, not double-block — see safety_monitor.hpp's
   // design comment.
   SafetyMonitor monitor;

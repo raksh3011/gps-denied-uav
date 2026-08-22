@@ -144,7 +144,7 @@ def test_forwards_valid_command_when_all_healthy():
 
 
 def test_degraded_localization_still_forwards_command():
-    # CARM (Planning) already responds to degraded localization; Safety
+    # Margasoochi (Planning) already responds to degraded localization; Safety
     # must defer, not double-block. See docs/SAFETY.md.
     safety = RunningNode('uav_safety', 'real_safety')
     driver = Node('t_safety_degraded')

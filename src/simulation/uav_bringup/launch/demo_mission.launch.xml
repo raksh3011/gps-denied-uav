@@ -5,7 +5,7 @@
     demo_world  -> synthetic LiDAR cloud of a pillar arena (/cloud_registered)
     real_world_model -> builds the live voxel map + tracked obstacles (REAL)
     real_mission     -> goal at (10, 0, 3), default params (REAL, see docs/MISSION.md)
-    real_planner     -> Theta* + D* Lite + CARM (REAL)
+    real_planner     -> Theta* + D* Lite + Margasoochi (REAL)
     demo_flyer       -> flies the vehicle along the planner's own trajectory
     viz_bridge/rviz2 -> what you watch
 

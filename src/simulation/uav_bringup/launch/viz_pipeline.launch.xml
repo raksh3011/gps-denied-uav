@@ -10,7 +10,7 @@
   - Red sphere: MockWorldModel's obstacle
   - Green line: real_planner's live trajectory from the moving vehicle to
     the goal — watch it re-plan every tick and bend around the obstacle
-    whenever the direct line crosses it (Theta* + D* Lite + CARM at work)
+    whenever the direct line crosses it (Theta* + D* Lite + Margasoochi at work)
 
   Swap mock_world_model for real_world_model (see
   real_perception_planning_pipeline.launch.xml) once a point cloud source

@@ -19,12 +19,12 @@
 //
 // Design, per docs/SAFETY.md:
 // - Localization DEGRADED is NOT disqualifying on its own: Planning's own
-//   confidence-adaptive risk margin (CARM, see docs/PLANNING.md) already
+//   confidence-adaptive risk margin (Margasoochi, see docs/PLANNING.md) already
 //   widens obstacle standoff and the local planner already reacts to it.
 //   Safety defers to that and only downgrades reported health to WARN.
 //   Safety only actively intervenes (HOLD/LAND) when localization is
 //   fully LOST, or when trajectory/map data is missing, stale, or
-//   invalid — situations CARM cannot compensate for because there is
+//   invalid — situations Margasoochi cannot compensate for because there is
 //   nothing trustworthy left to plan against.
 // - A momentary fault (one stale sample, one bad tick) gets `valid=false`
 //   — per the VehicleCommand contract, that means "reject and hold the

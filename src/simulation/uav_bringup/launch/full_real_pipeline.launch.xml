@@ -9,7 +9,7 @@
   /cloud_registered — the actual live map, not a synthetic one), Mission
   (real_mission — waypoint-sequencing state machine, default params match
   the old golden scenario, see docs/MISSION.md), Planning (Theta* + D*
-  Lite + CARM), Safety (real_safety — staleness/validity gating, an
+  Lite + Margasoochi), Safety (real_safety — staleness/validity gating, an
   independent obstacle-clearance check, sustained-loss escalation to
   MODE_LAND, see docs/SAFETY.md). Still mocked: Vehicle/PX4 command
   interface — real_vehicle exists but is UNVERIFIED against real PX4

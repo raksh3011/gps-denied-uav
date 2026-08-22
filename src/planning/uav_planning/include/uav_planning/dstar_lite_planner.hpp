@@ -89,8 +89,8 @@ public:
   // telemetry/benchmarking signal; does not affect correctness.
   bool lastComputeHitDeadline() const {return last_compute_hit_deadline_;}
 
-  // Confidence-adaptive risk margin (see docs/PLANNING.md, "Algorithmic
-  // contribution: confidence-adaptive risk margin"). Feeds the live
+  // Margasoochi: confidence-adaptive risk margin (see docs/PLANNING.md,
+  // "Algorithmic contribution: Margasoochi"). Feeds the live
   // localization confidence/status (LocalizationState.confidence/status)
   // into the search as a scalar multiplier on each cell's *existing*
   // soft-cost (the proximity buffer Grid3D::inflateObstacles already
