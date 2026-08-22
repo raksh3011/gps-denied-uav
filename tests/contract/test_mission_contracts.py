@@ -3,65 +3,15 @@ exercised as a subprocess over real ROS 2 topics — same pattern as the
 other test_*_contracts.py files. No Gazebo/PX4 needed.
 Run with: `pytest tests/contract -v`
 """
-import os
-import signal
-import subprocess
 import time
 
 import pytest
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import (
-    QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy,
-)
 
 from uav_interfaces.msg import Mission, LocalizationState
 
-SENSOR_QOS = QoSProfile(
-    reliability=ReliabilityPolicy.BEST_EFFORT, history=HistoryPolicy.KEEP_LAST, depth=5)
-MISSION_QOS = QoSProfile(
-    reliability=ReliabilityPolicy.RELIABLE, durability=DurabilityPolicy.TRANSIENT_LOCAL,
-    history=HistoryPolicy.KEEP_LAST, depth=1)
-
-SETTLE_SECONDS = 1.5
-
-
-@pytest.fixture(scope='module', autouse=True)
-def ros_context():
-    rclpy.init()
-    yield
-    rclpy.shutdown()
-
-
-class RunningNode:
-    def __init__(self, package: str, executable: str, *args: str):
-        self.proc = subprocess.Popen(
-            ['ros2', 'run', package, executable, *args],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            start_new_session=True)
-
-    def stop(self):
-        try:
-            os.killpg(os.getpgid(self.proc.pid), signal.SIGTERM)
-        except ProcessLookupError:
-            pass
-        try:
-            self.proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            try:
-                os.killpg(os.getpgid(self.proc.pid), signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-            self.proc.wait()
-
-
-def settle_and_clear(nodes, *collectors, seconds=SETTLE_SECONDS):
-    end = time.monotonic() + seconds
-    while time.monotonic() < end:
-        for n in nodes:
-            rclpy.spin_once(n, timeout_sec=0.05)
-    for c in collectors:
-        c.clear()
+from _helpers import RunningNode, SENSOR_QOS, MISSION_QOS, settle_and_clear
 
 
 def make_localization(x, y, z, ok=True):

@@ -9,72 +9,17 @@ be delivered after the next test's subscriber comes up. Every test below
 drains and discards whatever arrives during a settle window, then clears
 its collectors, before it starts asserting on freshly observed messages.
 """
-import os
-import signal
-import subprocess
 import time
 
-import pytest
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from std_msgs.msg import UInt32
 
 from uav_interfaces.msg import (
     LocalizationState, Trajectory, TrajectoryPoint, VehicleCommand,
 )
 
-SENSOR_QOS = QoSProfile(
-    reliability=ReliabilityPolicy.BEST_EFFORT, history=HistoryPolicy.KEEP_LAST, depth=5)
-
-SETTLE_SECONDS = 1.5
-
-
-@pytest.fixture(scope='module', autouse=True)
-def ros_context():
-    rclpy.init()
-    yield
-    rclpy.shutdown()
-
-
-class RunningNode:
-    """Launches a compiled mock node as a subprocess and tears it down."""
-
-    def __init__(self, package: str, executable: str):
-        # start_new_session puts the ros2-run wrapper AND the node binary in
-        # one process group we can kill together — terminating only the
-        # wrapper orphans the node, which then keeps publishing into every
-        # later test in the file.
-        self.proc = subprocess.Popen(
-            ['ros2', 'run', package, executable],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            start_new_session=True)
-
-    def stop(self):
-        try:
-            os.killpg(os.getpgid(self.proc.pid), signal.SIGTERM)
-        except ProcessLookupError:
-            pass
-        try:
-            self.proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            try:
-                os.killpg(os.getpgid(self.proc.pid), signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-            self.proc.wait()
-
-
-def settle_and_clear(nodes, *collectors, seconds=SETTLE_SECONDS):
-    """Spin for `seconds` to let discovery/queued messages flush, then
-    discard anything collected so far — the real test window starts clean.
-    """
-    end = time.monotonic() + seconds
-    while time.monotonic() < end:
-        for n in nodes:
-            rclpy.spin_once(n, timeout_sec=0.05)
-    for c in collectors:
-        c.clear()
+from _helpers import RunningNode, SENSOR_QOS, settle_and_clear
 
 
 def spin_for(nodes, seconds):

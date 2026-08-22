@@ -49,6 +49,7 @@ pytest tests/ -v
 - Contract tests belong with the interface they validate, in `tests/contract/`, not inside a module package — they must be able to fail independent of which side (producer or consumer) is wrong.
 - Prefer testing against real mock nodes over topics (as in `test_node_contracts.py`) rather than calling internal functions directly — this catches QoS/serialization issues that a plain function call would miss.
 - Every new `.msg` field that has a validity condition (see [CONVENTIONS.md](CONVENTIONS.md#error--status-conventions)) needs a contract test asserting consumers respect it.
+- Import `RunningNode`/`settle_and_clear`/`SENSOR_QOS`/`MISSION_QOS` from `tests/contract/_helpers.py` rather than redefining them — every existing `test_*_contracts.py` file used to carry its own copy (subprocess launch, process-group teardown, the settle-then-clear pattern); they're consolidated in one place now, and a new contract test file should use it too, not restart the copy-paste.
 
 ## Vendored packages and `colcon test`
 
