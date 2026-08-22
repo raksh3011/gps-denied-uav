@@ -51,7 +51,18 @@ add_executable(bench_planning tools/bench_planning.cpp)
 target_link_libraries(bench_planning uav_planning_core)
 target_compile_features(bench_planning PUBLIC cxx_std_20)
 
-install(TARGETS mock_planner real_planner bench_planning DESTINATION lib/${PROJECT_NAME})
+# Independent, non-functional comparison analysis (analysis/ at the repo
+# root — deliberately outside src/, see analysis/README.md). Built here
+# purely for convenience (uav_planning_core is already an in-tree CMake
+# target, so no export/find_package plumbing is needed) — it is not a
+# test, not part of CI, not linked into any node, and never touches
+# planner internals; it only calls the same public API a unit test would.
+add_executable(compare_planners ${CMAKE_CURRENT_SOURCE_DIR}/../../../analysis/compare_planners.cpp)
+target_link_libraries(compare_planners uav_planning_core)
+target_compile_features(compare_planners PUBLIC cxx_std_20)
+
+install(TARGETS mock_planner real_planner bench_planning compare_planners
+  DESTINATION lib/${PROJECT_NAME})
 install(TARGETS uav_planning_core
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib

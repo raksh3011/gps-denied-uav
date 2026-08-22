@@ -63,6 +63,10 @@ It reports five things, each chosen to be the honest comparison rather than a fl
 
 *Numbers pending a run on real hardware — this section gets the actual output appended once that happens, not filled in ahead of time.*
 
+## Independent comparison analysis (demonstration only)
+
+`analysis/` at the repo root holds a separate, non-functional comparison of this stack against a traditional grid-search baseline (plain A*, replanned from scratch) — path length, planning/re-planning time, computational effort, path smoothness, obstacle avoidance, dynamic-environment response, and Margasoochi's margin response under degraded localization, all measured externally via the same public API a unit test would use. It is not launched by anything, not part of CI, and cannot influence runtime behavior — see `analysis/README.md` for the full methodology and honest baseline definition (including the deliberate, non-flattened distinction between the global reference path (Theta*) and what's actually flown (D* Lite), since D* Lite does not itself inherit Theta*'s any-angle shortcuts).
+
 ## Architecture
 
 ```
