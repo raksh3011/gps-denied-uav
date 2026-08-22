@@ -106,10 +106,24 @@ void DStarLitePlanner::updateVertex(int id)
   }
 }
 
-void DStarLitePlanner::computeShortestPath()
+void DStarLitePlanner::computeShortestPath(Clock::time_point deadline)
 {
+  last_compute_hit_deadline_ = false;
   size_t iterations = 0;
   while (iterations < max_compute_iterations_) {
+    // Real-time hardening (see the header comment on why this is
+    // deliberately NOT presented as a novel algorithm): bail out the
+    // instant the wall-clock deadline passes, leaving g_/rhs_/queue_ in
+    // whatever valid, resumable state they're in — D* Lite's own
+    // invariant is that this is always safe to interrupt, never unsafe
+    // (edgeCost() still refuses occupied cells regardless of
+    // convergence), only possibly stale/suboptimal until the next call
+    // picks up where this one left off.
+    if (Clock::now() >= deadline) {
+      last_compute_hit_deadline_ = true;
+      break;
+    }
+
     // Discard stale duplicate entries (lazy deletion) until we find the
     // real current top, or the queue is empty.
     while (!queue_.empty()) {
@@ -245,7 +259,8 @@ double DStarLitePlanner::riskMultiplierForBand(int band)
   return 1.0;
 }
 
-void DStarLitePlanner::setLocalizationRisk(float confidence, uint8_t status)
+void DStarLitePlanner::setLocalizationRisk(
+  float confidence, uint8_t status, Clock::time_point deadline)
 {
   const int band = riskBandFor(confidence, status);
   if (band == risk_band_) {return;}
@@ -261,7 +276,7 @@ void DStarLitePlanner::setLocalizationRisk(float confidence, uint8_t status)
       updateVertex(n);
     }
   }
-  computeShortestPath();
+  computeShortestPath(deadline);
 }
 
 void DStarLitePlanner::initialize(
@@ -291,11 +306,11 @@ void DStarLitePlanner::initialize(
   }
 
   initialized_ = true;
-  computeShortestPath();
+  computeShortestPath(kNoDeadline);   // one-time, off the real-time tick path — see update()
 }
 
 std::vector<Eigen::Vector3d> DStarLitePlanner::update(
-  const Grid3D & grid, const Eigen::Vector3d & start)
+  const Grid3D & grid, const Eigen::Vector3d & start, Clock::time_point deadline)
 {
   if (!initialized_) {return {};}
 
@@ -332,7 +347,7 @@ std::vector<Eigen::Vector3d> DStarLitePlanner::update(
     }
   }
 
-  computeShortestPath();
+  computeShortestPath(deadline);
 
   if (occupied_snapshot_[start_id_] || std::isinf(g_[start_id_])) {return {};}
 

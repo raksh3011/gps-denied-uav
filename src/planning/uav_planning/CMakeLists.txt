@@ -44,7 +44,14 @@ target_link_libraries(real_planner uav_planning_core)
 ament_target_dependencies(real_planner rclcpp uav_interfaces)
 target_compile_features(real_planner PUBLIC cxx_std_20)
 
-install(TARGETS mock_planner real_planner DESTINATION lib/${PROJECT_NAME})
+# Standalone benchmark tool (not a test — no pass/fail, not run by
+# colcon test/CI). Produces the measured numbers behind docs/PLANNING.md's
+# "Benchmarked insights" section. ROS-free, same as uav_planning_core.
+add_executable(bench_planning tools/bench_planning.cpp)
+target_link_libraries(bench_planning uav_planning_core)
+target_compile_features(bench_planning PUBLIC cxx_std_20)
+
+install(TARGETS mock_planner real_planner bench_planning DESTINATION lib/${PROJECT_NAME})
 install(TARGETS uav_planning_core
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib

@@ -15,6 +15,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <chrono>
 #include <limits>
 #include <vector>
 
@@ -105,6 +106,70 @@ TEST(DStarLitePlanner, GoalOccupiedGivesEmptyPath) {
 
   planner.initialize(grid, start, goal);
   EXPECT_TRUE(planner.update(grid, start).empty());
+}
+
+TEST(DStarLitePlanner, AlreadyPastDeadlineStopsImmediatelyAndSafely) {
+  Grid3D grid(0.5, Eigen::Vector3d(-5.0, -5.0, 0.0), 20, 20, 4);
+  DStarLitePlanner planner;
+  const Eigen::Vector3d start(0.0, 0.0, 1.0);
+  const Eigen::Vector3d goal(3.0, 0.0, 1.0);
+  planner.initialize(grid, start, goal);   // unbounded, off the real-time path
+
+  // A deadline already in the past: computeShortestPath() must bail out
+  // on its very first check, report it via lastComputeHitDeadline(), and
+  // never corrupt state (a subsequent unbounded call still converges).
+  const auto past = DStarLitePlanner::Clock::now() - std::chrono::seconds(1);
+  const auto path = planner.update(grid, start, past);
+  EXPECT_TRUE(planner.lastComputeHitDeadline());
+  // Safe either way: empty (didn't converge in time) or already-correct
+  // from initialize()'s own unbounded pass — never a corrupt/garbage one.
+  if (!path.empty()) {
+    EXPECT_NEAR((path.back() - goal).norm(), 0.0, 0.5);
+  }
+
+  const auto recovered = planner.update(grid, start, DStarLitePlanner::kNoDeadline);
+  EXPECT_FALSE(planner.lastComputeHitDeadline());
+  ASSERT_FALSE(recovered.empty());
+  EXPECT_NEAR((recovered.back() - goal).norm(), 0.0, 0.5);
+}
+
+TEST(DStarLitePlanner, GenerousDeadlineConvergesNormallyAndReportsSo) {
+  Grid3D grid(0.5, Eigen::Vector3d(-5.0, -5.0, 0.0), 20, 20, 4);
+  DStarLitePlanner planner;
+  const Eigen::Vector3d start(0.0, 0.0, 1.0);
+  const Eigen::Vector3d goal(3.0, 0.0, 1.0);
+  planner.initialize(grid, start, goal);
+
+  const auto generous = DStarLitePlanner::Clock::now() + std::chrono::seconds(5);
+  const auto path = planner.update(grid, start, generous);
+  EXPECT_FALSE(planner.lastComputeHitDeadline());
+  ASSERT_FALSE(path.empty());
+  EXPECT_NEAR((path.back() - goal).norm(), 0.0, 0.5);
+}
+
+TEST(DStarLitePlanner, InterruptedSearchResumesAndConvergesAcrossCalls) {
+  // Deliberately deterministic instead of timing-based: a tiny expansion
+  // cap plays the same role a tight deadline would (both leave
+  // g_/rhs_/queue_ mid-search, which is the property under test — that
+  // this is safe to interrupt and resume, whichever cap triggers it) but
+  // without any wall-clock flakiness in CI.
+  Grid3D grid(0.5, Eigen::Vector3d(-5.0, -5.0, 0.0), 20, 20, 4);
+  DStarLitePlanner planner(/*max_compute_iterations=*/2);
+  const Eigen::Vector3d start(0.0, 0.0, 1.0);
+  const Eigen::Vector3d goal(3.0, 0.0, 1.0);
+  planner.initialize(grid, start, goal);
+
+  // Keep calling update() (each call resumes from where the last left
+  // off, per D* Lite's own incremental invariant) until it converges —
+  // must happen well within a generous number of ticks, proving the
+  // search makes real forward progress each time rather than restarting
+  // or stalling.
+  std::vector<Eigen::Vector3d> path;
+  for (int tick = 0; tick < 200 && path.empty(); ++tick) {
+    path = planner.update(grid, start);
+  }
+  ASSERT_FALSE(path.empty()) << "capped search never converged across repeated resumed calls";
+  EXPECT_NEAR((path.back() - goal).norm(), 0.0, 0.5);
 }
 
 TEST(DStarLitePlanner, RiskBandQuantizationMapsConfidenceAndStatus) {

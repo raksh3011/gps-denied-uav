@@ -42,6 +42,27 @@ Implementation: `DStarLitePlanner::setLocalizationRisk()` in [dstar_lite_planner
 
 What's specific to this project beyond CARM is the combination and the integration: Theta* seeding a persistent D* Lite instance that then runs incrementally every tick against a live occupancy grid built from `LocalMap` + inflated `ObstacleSet`, wired into this exact interface contract — a legitimate, defensible engineering choice for "shortest global path" + "low-latency local reaction", but engineering, not algorithm invention.
 
+## Real-time hardening: deadline-bounded incremental replanning
+
+`DStarLitePlanner::update()`/`setLocalizationRisk()` take an optional wall-clock deadline (`Clock::time_point`, default = none). **This is explicitly not presented as a novel algorithm.** Checked prior art (2026-08-21): **Anytime Dynamic A\*** (Likhachev, Ferguson, Gordon, Stentz, Thrun, 2005) already combines bounded-time anytime search with incremental replanning — adding "a deadline" to D* Lite on its own would just be re-deriving that territory, and claiming it as ours would repeat the exact mistake CARM's own prior-art check was built to avoid.
+
+What's actually here is narrower: D* Lite's own textbook invariant is that its `g_`/`rhs_` state and priority queue are valid to interrupt and resume at any point — that is the entire premise of an incremental planner. `computeShortestPath()` already had an expansion-count cap (`max_compute_iterations_`); it now *also* checks a wall-clock deadline every iteration, so a single tick can never exceed the deadline regardless of obstacle density, only the two established bounds it already had (expansion count, or the deadline) trigger first. `real_planner_node` computes that deadline as `kDeadlineFraction` (0.7) of the tick period, leaving headroom for `inflateObstacles`/trajectory generation/publishing in the same tick. A tick that hits the deadline reports it via `lastComputeHitDeadline()` (currently `RCLCPP_DEBUG`-logged, not surfaced in `PlannerStatus` — see Next tasks) and returns the best-known path so far: still guaranteed collision-free (`edgeCost()` refuses occupied cells regardless of convergence state), possibly not yet optimal, corrected on the next tick as the persistent search continues from where it left off.
+
+Regression tests: `AlreadyPastDeadlineStopsImmediatelyAndSafely`, `GenerousDeadlineConvergesNormallyAndReportsSo`, `InterruptedSearchResumesAndConvergesAcrossCalls` (the last one uses a tiny `max_compute_iterations_` rather than real timing to test the same "safe to interrupt and resume" property deterministically, without wall-clock flakiness in CI).
+
+## Benchmarked insights
+
+Real, measured numbers — not asserted — from `bench_planning`, a standalone tool (no pass/fail, not part of `colcon test`/CI) at the exact arena scale (120x60x40 @ 0.25m, 8 obstacles) that surfaced both the stale-queue and eager-Theta* bugs:
+
+```bash
+colcon build --packages-select uav_planning
+./install/uav_planning/lib/uav_planning/bench_planning
+```
+
+It reports five things, each chosen to be the honest comparison rather than a flattering one: (1) cold from-scratch global search cost, Lazy Theta* vs. plain A*; (2) D* Lite's steady-state incremental `update()` cost vs. what re-running Theta* from scratch every tick would cost instead — the actual measured payoff of being incremental, on this machine, not a complexity argument; (3) CARM's risk-band-switch cost vs. a full re-`initialize()` — same idea, for CARM specifically; (4) the deadline hardening's real worst-case single-call latency under an artificially tiny budget, confirming empirically that a tick can't run away; (5) `DStarLitePlanner`'s approximate memory footprint at this grid scale.
+
+*Numbers pending a run on real hardware — this section gets the actual output appended once that happens, not filled in ahead of time.*
+
 ## Architecture
 
 ```
@@ -112,3 +133,5 @@ ros2 topic echo /planning/status
 3. Acceleration-limited/smoothed trajectory generation (e.g. trapezoidal velocity profile or a spline through the thinned waypoints) instead of instantaneous velocity changes at each waypoint.
 4. Tune `kHardMarginM`/`kSoftMarginM`/`kSoftCostWeight` (currently reasonable-guess constants in `real_planner_node.cpp`) against real vehicle dimensions and desired obstacle standoff.
 5. Run the golden scenario (`docs/TESTING.md`) with real Planning once real Localization also has confirmed odometry (see [docs/LOCALIZATION.md](LOCALIZATION.md)), and compare against the mocked baseline.
+6. Run `bench_planning` on real hardware and paste its actual output into the "Benchmarked insights" section above — it's a placeholder until then, deliberately not filled in with estimates.
+7. Surface `DStarLitePlanner::lastComputeHitDeadline()` in `PlannerStatus` (a new field, or reuse `message`) so a tick that returned a stale/unconverged path is visible to Safety/Mission, not just `RCLCPP_DEBUG`-logged.

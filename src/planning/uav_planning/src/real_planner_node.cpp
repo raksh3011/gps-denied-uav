@@ -62,6 +62,11 @@ constexpr double kHardMarginM = 0.3;      // hard-occupied buffer beyond an obst
 constexpr double kSoftMarginM = 1.5;      // additional soft-cost buffer beyond the hard margin
 constexpr double kSoftCostWeight = 5.0;   // cost per meter of proximity within the soft margin
 constexpr double kGoalChangeToleranceM = 0.1;   // re-run global + re-init local beyond this
+// Fraction of the tick period D* Lite is allowed to spend, leaving
+// headroom for inflateObstacles/trajectory-generation/publishing in the
+// same tick. See DStarLitePlanner's header comment on why this bound
+// exists and what it does and doesn't claim.
+constexpr double kDeadlineFraction = 0.7;
 }  // namespace
 
 class RealPlanner : public rclcpp::Node
@@ -92,15 +97,26 @@ public:
     status_pub_ = create_publisher<PlannerStatus>("/planning/status", sensor_qos);
 
     double rate_hz = declare_parameter<double>("rate_hz", 10.0);
-    auto period = std::chrono::duration<double>(1.0 / rate_hz);
+    tick_period_ = std::chrono::duration<double>(1.0 / rate_hz);
     timer_ = create_wall_timer(
-      std::chrono::duration_cast<std::chrono::nanoseconds>(period),
+      std::chrono::duration_cast<std::chrono::nanoseconds>(tick_period_),
       std::bind(&RealPlanner::tick, this));
   }
 
 private:
   void tick()
   {
+    // Real-time hardening for the local planner (see DStarLitePlanner's
+    // header comment): D* Lite gets a wall-clock deadline inside this
+    // tick's own period, leaving headroom for everything else tick()
+    // still has to do (inflateObstacles, trajectory generation,
+    // publishing) so a dense-obstacle tick can never blow through
+    // rate_hz's period and stall the control loop.
+    const auto tick_start = uav_planning::DStarLitePlanner::Clock::now();
+    const auto deadline = tick_start +
+      std::chrono::duration_cast<uav_planning::DStarLitePlanner::Clock::duration>(
+        kDeadlineFraction * tick_period_);
+
     PlannerStatus status;
     status.header.stamp = this->now();
 
@@ -184,9 +200,14 @@ private:
     // Confidence-adaptive risk margin: feed the live localization quality
     // into the local planner every tick. Cheap no-op unless the risk band
     // actually crosses a threshold (see DStarLitePlanner header).
-    dstar_.setLocalizationRisk(loc.confidence, loc.status);
+    dstar_.setLocalizationRisk(loc.confidence, loc.status, deadline);
 
-    std::vector<Eigen::Vector3d> path = dstar_.update(grid, start);
+    std::vector<Eigen::Vector3d> path = dstar_.update(grid, start, deadline);
+    if (dstar_.lastComputeHitDeadline()) {
+      RCLCPP_DEBUG(
+        get_logger(),
+        "D* Lite hit its per-tick deadline before converging — this tick's path may be stale.");
+    }
     if (path.empty() && dstar_.isInitialized()) {
       // update() returns empty both for "genuinely unreachable" and for
       // "map geometry changed under us, please re-initialize" (see
@@ -194,8 +215,8 @@ private:
       // it goes false in the latter case, so try exactly once more here
       // rather than reporting failure for a recoverable map re-centering.
       dstar_.initialize(grid, start, goal);
-      dstar_.setLocalizationRisk(loc.confidence, loc.status);   // initialize() resets the band
-      path = dstar_.update(grid, start);
+      dstar_.setLocalizationRisk(loc.confidence, loc.status, deadline);   // resets the band
+      path = dstar_.update(grid, start, deadline);
     }
 
     if (path.empty()) {
@@ -237,6 +258,7 @@ private:
   uav_planning::DStarLitePlanner dstar_;
   std::optional<Eigen::Vector3d> last_goal_;
   double total_path_length_{0.0};
+  std::chrono::duration<double> tick_period_{0.1};
 };
 
 int main(int argc, char ** argv)

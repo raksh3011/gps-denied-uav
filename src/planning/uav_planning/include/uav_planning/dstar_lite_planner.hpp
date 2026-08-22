@@ -26,11 +26,30 @@
 // changes — D* Lite's incremental machinery is specifically NOT valid
 // across a goal change, only across start motion / graph changes), then
 // update() every tick with the current position and latest grid.
+//
+// Real-time hardening: update()/setLocalizationRisk() take an optional
+// wall-clock deadline (steady_clock::time_point, default = none). This is
+// NOT presented as a novel algorithm — Anytime Dynamic A* (Likhachev,
+// Ferguson, Gordon, Stentz, Thrun, 2005) already combines bounded-time
+// anytime search with incremental replanning, and a naive "add a
+// deadline" change would just be re-deriving that territory. What's here
+// is narrower and honestly scoped: D* Lite's own invariant is that its
+// g/rhs state and priority queue are valid to interrupt and resume at
+// any point (that's the whole point of an incremental planner), so
+// bounding computeShortestPath() by wall-clock time — in addition to the
+// existing max_compute_iterations expansion cap — guarantees a tick
+// never blocks the control loop past its period, at the cost of
+// possibly reporting a stale/suboptimal-but-still-collision-free path
+// (never an unsafe one — edgeCost() still returns infinity for occupied
+// cells regardless of convergence) on ticks where the deadline is hit
+// before the search settles. See docs/PLANNING.md for the benchmarked
+// numbers this actually buys.
 #ifndef UAV_PLANNING__DSTAR_LITE_PLANNER_HPP_
 #define UAV_PLANNING__DSTAR_LITE_PLANNER_HPP_
 
 #include <Eigen/Core>
 
+#include <chrono>
 #include <cstdint>
 #include <limits>
 #include <queue>
@@ -44,6 +63,9 @@ namespace uav_planning
 class DStarLitePlanner
 {
 public:
+  using Clock = std::chrono::steady_clock;
+  static constexpr Clock::time_point kNoDeadline = Clock::time_point::max();
+
   explicit DStarLitePlanner(size_t max_compute_iterations = 200000);
 
   // (Re)starts the search around a new goal, taking a full snapshot of
@@ -54,8 +76,18 @@ public:
   // only what changed, and returns the current best path from `start` to
   // the goal (world-frame waypoints), or empty if unreachable / not yet
   // initialized / the grid dimensions changed (which forces a fresh
-  // initialize() — see docs/PLANNING.md).
-  std::vector<Eigen::Vector3d> update(const Grid3D & grid, const Eigen::Vector3d & start);
+  // initialize() — see docs/PLANNING.md). `deadline`: see the file header
+  // comment on the real-time hardening this adds; kNoDeadline (default)
+  // preserves the original unbounded-by-time behavior.
+  std::vector<Eigen::Vector3d> update(
+    const Grid3D & grid, const Eigen::Vector3d & start, Clock::time_point deadline = kNoDeadline);
+
+  // True if the most recent computeShortestPath() (from update() or
+  // setLocalizationRisk()) stopped because `deadline` was reached rather
+  // than because the search actually converged — i.e., the returned path
+  // may be stale/suboptimal this tick, though still collision-free. Pure
+  // telemetry/benchmarking signal; does not affect correctness.
+  bool lastComputeHitDeadline() const {return last_compute_hit_deadline_;}
 
   // Confidence-adaptive risk margin (see docs/PLANNING.md, "Algorithmic
   // contribution: confidence-adaptive risk margin"). Feeds the live
@@ -74,7 +106,8 @@ public:
   // cost (risk_cells_, tracked incrementally as the map changes) — empty
   // free-space cells are untouched, so cost is O(|risk_cells_|) on a band
   // crossing and O(1) otherwise, not O(|grid|).
-  void setLocalizationRisk(float confidence, uint8_t status);
+  void setLocalizationRisk(
+    float confidence, uint8_t status, Clock::time_point deadline = kNoDeadline);
 
   double riskMultiplier() const {return risk_multiplier_;}
 
@@ -112,7 +145,7 @@ private:
   static double riskMultiplierForBand(int band);
   Key calculateKey(int id) const;
   void updateVertex(int id);
-  void computeShortestPath();
+  void computeShortestPath(Clock::time_point deadline);
   double edgeCost(int from_id, int to_id) const;
   std::vector<int> neighborIds(int id) const;
   int toId(const GridIndex & idx) const;
@@ -121,6 +154,7 @@ private:
 
   size_t max_compute_iterations_;
   bool initialized_{false};
+  bool last_compute_hit_deadline_{false};
 
   int size_x_{0};
   int size_y_{0};
