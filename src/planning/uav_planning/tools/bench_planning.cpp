@@ -37,6 +37,8 @@
 //     state at this grid scale.
 #include <algorithm>
 #include <chrono>
+#include <cinttypes>
+#include <cstdint>
 #include <cstdio>
 #include <vector>
 
@@ -163,9 +165,8 @@ int main()
     DStarLitePlanner dstar;
     dstar.initialize(grid, kStart, kGoal);
 
-    const double band_switch_ms = timeMs([&]() {
-        dstar.setLocalizationRisk(0.5F, 1 /* STATUS_DEGRADED */);
-      });
+    const double band_switch_ms = timeMs(
+      [&]() {dstar.setLocalizationRisk(0.5F, 1 /* STATUS_DEGRADED */);});
     const double reinit_ms = timeMs([&]() {dstar.initialize(grid, kStart, kGoal);});
 
     std::printf("[3] CARM risk-band switch vs. a full re-initialize\n");
@@ -191,8 +192,9 @@ int main()
       const double call_ms = timeMs([&]() {dstar.update(grid, pos, deadline);});
       worst_ms = std::max(worst_ms, call_ms);
     }
-    std::printf("[4] Deadline hardening under an artificially tiny budget (%ld us requested)\n",
-      static_cast<long>(kTinyBudget.count()));
+    std::printf(
+      "[4] Deadline hardening under an artificially tiny budget (%" PRId64 " us requested)\n",
+      static_cast<int64_t>(kTinyBudget.count()));
     std::printf(
       "    Worst observed single-call latency: %8.3f ms (must stay near the requested budget,\n"
       "                                          not blow up with grid size)\n\n", worst_ms);
